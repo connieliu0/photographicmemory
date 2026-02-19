@@ -1,71 +1,231 @@
 (function () {
-  const GRID_SIZE = 8;
-  const MIN_ZOOM = 0.5;
-  const MAX_ZOOM = 5;
+  const GRID_SIZE = 3;
+  const CELL_SIZE = "min(100vw/3, 100vh/3)";
   const TRANSITION_DURATION = 0.6;
   const TRANSITION_EASE = "power2.inOut";
 
-  let zoom = 1;
-  let userZoomEnabled = false; // User zoom disabled; only system (scene) zoom
   let currentScene = -1;
-  let currentZoomCenter = null;
-  let sceneZoomTween = null;
   let autoTimer = null;
   let sceneClickHandler = null;
-  let pinchStartDistance = 0;
-  let pinchStartZoom = 1;
-  let isTransitioning = false; // Block clicks during transitions
+  let cellClickHandlers = [];
+  let isTransitioning = false;
 
-  if (typeof Flip === "undefined") {
-    console.warn("Engine: GSAP Flip plugin not loaded.");
-  }
   if (typeof gsap !== "undefined") {
     gsap.defaults({ ease: TRANSITION_EASE });
   }
 
   // --- DOM setup ---
 
+  const gridClipWrapper = document.createElement("div");
+  gridClipWrapper.id = "grid-clip-wrapper";
+  Object.assign(gridClipWrapper.style, {
+    position: "fixed",
+    top: "0",
+    left: "0",
+    width: "100vw",
+    height: "100vh",
+    overflow: "hidden",
+  });
+  document.body.appendChild(gridClipWrapper);
+
   const container = document.createElement("div");
   container.id = "grid-container";
   Object.assign(container.style, {
-    position: "fixed",
+    position: "absolute",
     top: "50%",
     left: "50%",
     transform: "translate(-50%, -50%)",
   });
-  document.body.appendChild(container);
+  gridClipWrapper.appendChild(container);
 
   const grid = document.createElement("div");
   grid.id = "grid";
   Object.assign(grid.style, {
     display: "grid",
-    gridTemplateColumns: "repeat(" + GRID_SIZE + ", 12.5vw)",
-    gridTemplateRows: "repeat(" + GRID_SIZE + ", 12.5vh)",
-    width: "100vw",
-    height: "100vh",
-    transformOrigin: "center center",
-    transform: "scale(" + zoom + ")",
+    gridTemplateColumns: "repeat(" + GRID_SIZE + ", " + CELL_SIZE + ")",
+    gridTemplateRows: "repeat(" + GRID_SIZE + ", " + CELL_SIZE + ")",
+    width: "fit-content",
+    height: "fit-content",
   });
   container.appendChild(grid);
 
   const cells = [];
 
   for (var i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+    var row = Math.floor(i / GRID_SIZE);
+    var col = i % GRID_SIZE;
     var cell = document.createElement("div");
     cell.className = "cell";
+    cell.dataset.row = row;
+    cell.dataset.col = col;
     Object.assign(cell.style, {
-      width: "12.5vw",
-      height: "12.5vh",
+      width: CELL_SIZE,
+      height: CELL_SIZE,
       overflow: "hidden",
       position: "relative",
       border: "1px solid white",
-      opacity: "0", // Start all cells hidden
+      opacity: "0",
+    });
+    cell.addEventListener("mouseenter", function (e) {
+      var r = parseInt(this.dataset.row, 10);
+      var col = parseInt(this.dataset.col, 10);
+      var block = getBlockAt(r, col);
+      if (!block) return;
+      var scene = window.Scenes && window.Scenes[currentScene];
+      if (block.hoverCursor) {
+        document.body.style.cursor = block.hoverCursor;
+      }
+      if (block.hoverTooltip != null && block.hoverTooltip !== "") {
+        tooltipActive = true;
+        tooltipEl.textContent = block.hoverTooltip;
+        tooltipEl.style.display = "block";
+        tooltipEl.style.opacity = "1";
+        tooltipEl.style.left = (e.clientX + 16) + "px";
+        tooltipEl.style.top = (e.clientY + 16) + "px";
+      }
+    });
+    cell.addEventListener("mouseleave", function () {
+      var scene = window.Scenes && window.Scenes[currentScene];
+      if (!scene) return;
+      document.body.style.cursor = scene.cursor || "default";
+      if (scene.tooltipVisible && scene.cursorTooltip != null && scene.cursorTooltip !== "") {
+        tooltipActive = true;
+        tooltipEl.textContent = scene.cursorTooltip;
+        tooltipEl.style.display = "block";
+        tooltipEl.style.opacity = "1";
+      } else {
+        tooltipActive = false;
+        tooltipEl.style.display = "none";
+        tooltipEl.style.opacity = "0";
+      }
     });
     grid.appendChild(cell);
     cells.push(cell);
   }
 
+  // --- Breakout grid overlay (for scenes that show all images outside 3x3) ---
+  const breakoutOverlay = document.createElement("div");
+  breakoutOverlay.id = "breakout-overlay";
+  Object.assign(breakoutOverlay.style, {
+    position: "fixed",
+    top: "0",
+    left: "0",
+    width: "100vw",
+    height: "100vh",
+    overflow: "hidden",
+    display: "none",
+    zIndex: "100",
+    background: "#000",
+  });
+  document.body.appendChild(breakoutOverlay);
+
+  const breakoutGridEl = document.createElement("div");
+  breakoutGridEl.id = "breakout-grid";
+  Object.assign(breakoutGridEl.style, {
+    display: "grid",
+    width: "100vw",
+    height: "100vh",
+    gap: "0",
+    padding: "0",
+    boxSizing: "border-box",
+  });
+  breakoutOverlay.appendChild(breakoutGridEl);
+
+  var breakoutClickHandler = null;
+
+  function showBreakoutGrid(scene) {
+    var images = scene.breakoutImages || [];
+    var centerImage = scene.breakoutCenterImage || "";
+    if (images.length === 0 && !centerImage) return;
+
+    var list = [];
+    if (images.length > 0) {
+      list = images.slice();
+    }
+    if (centerImage && list.indexOf(centerImage) === -1) {
+      list.push(centerImage);
+    }
+    if (list.length === 0) return;
+
+    var centerIndex = Math.floor(list.length / 2);
+    var idx = list.indexOf(centerImage);
+    if (idx !== -1 && idx !== centerIndex) {
+      list.splice(idx, 1);
+      list.splice(centerIndex, 0, centerImage);
+    }
+
+    var cols = 6;
+    var rows = Math.ceil(list.length / cols);
+    if (rows * cols > list.length) {
+      cols = 2;
+      rows = Math.ceil(list.length / cols);
+    }
+    breakoutGridEl.style.gridTemplateColumns = "repeat(" + cols + ", 1fr)";
+    breakoutGridEl.style.gridTemplateRows = "repeat(" + rows + ", 1fr)";
+    breakoutGridEl.innerHTML = "";
+
+    list.forEach(function (src, i) {
+      var cell = document.createElement("div");
+      Object.assign(cell.style, {
+        width: "100%",
+        height: "100%",
+        minWidth: "0",
+        minHeight: "0",
+        overflow: "hidden",
+        position: "relative",
+        border: "1px solid rgba(255,255,255,0.2)",
+        boxSizing: "border-box",
+      });
+      var img = document.createElement("img");
+      Object.assign(img.style, {
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        display: "block",
+      });
+      img.src = src;
+      cell.appendChild(img);
+      var isCenter = (src === centerImage);
+      if (isCenter) {
+        cell.style.cursor = (scene.cursor || "zoom-in");
+        cell.dataset.clickable = "true";
+      }
+      breakoutGridEl.appendChild(cell);
+    });
+
+    gridClipWrapper.style.visibility = "hidden";
+    breakoutOverlay.style.display = "block";
+
+    if (centerImage && breakoutClickHandler === null) {
+      breakoutClickHandler = function (e) {
+        var cell = e.target.closest("[data-clickable=true]");
+        if (!cell || isTransitioning) return;
+        e.stopPropagation();
+        teardownBreakout();
+        goToScene(currentScene + 1);
+      };
+      breakoutOverlay.addEventListener("click", breakoutClickHandler);
+    }
+  }
+
+  function teardownBreakout() {
+    breakoutOverlay.style.display = "none";
+    breakoutGridEl.innerHTML = "";
+    gridClipWrapper.style.visibility = "";
+    if (breakoutClickHandler) {
+      breakoutOverlay.removeEventListener("click", breakoutClickHandler);
+      breakoutClickHandler = null;
+    }
+  }
+
+  function hideBreakoutIfActive() {
+    if (breakoutOverlay.style.display === "block") {
+      teardownBreakout();
+    }
+  }
+
   // --- Image preloader cache ---
+
   var imageCache = {};
 
   function preloadImage(src) {
@@ -77,21 +237,67 @@
         resolve();
       };
       img.onerror = function () {
-        resolve(); // Don't block on failed loads
+        resolve();
       };
       img.src = src;
     });
   }
 
   function preloadSceneImages(scene) {
-    if (!scene || !Array.isArray(scene.blocks)) return Promise.resolve();
-    var promises = scene.blocks
-      .filter(function (b) { return b.image && b.visible !== false; })
-      .map(function (b) { return preloadImage(b.image); });
+    if (!scene) return Promise.resolve();
+    var promises = [];
+    if (Array.isArray(scene.blocks)) {
+      scene.blocks
+        .filter(function (b) { return b.image && b.visible !== false; })
+        .forEach(function (b) { promises.push(preloadImage(b.image)); });
+    }
+    if (scene.breakoutGrid && Array.isArray(scene.breakoutImages)) {
+      scene.breakoutImages.forEach(function (src) { promises.push(preloadImage(src)); });
+    }
+    if (scene.breakoutGrid && scene.breakoutCenterImage) {
+      promises.push(preloadImage(scene.breakoutCenterImage));
+    }
     return Promise.all(promises);
   }
 
-  // --- Custom cursor tooltip ---
+  // --- Bottom text: two layers for crossfade ---
+
+  const bottomTextWrap = document.createElement("div");
+  bottomTextWrap.id = "bottom-text-wrap";
+  Object.assign(bottomTextWrap.style, {
+    position: "fixed",
+    bottom: "8%",
+    left: "50%",
+    transform: "translateX(-50%)",
+    pointerEvents: "none",
+    zIndex: "999",
+    width: "100%",
+    maxWidth: "600px",
+  });
+  document.body.appendChild(bottomTextWrap);
+
+  var bottomTextElA = document.createElement("div");
+  var bottomTextElB = document.createElement("div");
+  [bottomTextElA, bottomTextElB].forEach(function (el) {
+    Object.assign(el.style, {
+      position: "absolute",
+      left: "50%",
+      transform: "translateX(-50%)",
+      color: "#ffd700",
+      fontWeight: "400",
+      fontSize: "18px",
+      fontFamily: "system-ui, sans-serif",
+      textAlign: "center",
+      opacity: "0",
+      width: "100%",
+      textShadow: "2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000",
+    });
+    bottomTextWrap.appendChild(el);
+  });
+
+  var bottomTextActive = 0;
+
+  // --- Cursor tooltip ---
 
   var tooltipActive = false;
   const tooltipEl = document.createElement("div");
@@ -118,53 +324,6 @@
     tooltipEl.style.top = (e.clientY + 16) + "px";
   });
 
-  // --- Bottom text: two layers for crossfade ---
-
-  const bottomTextWrap = document.createElement("div");
-  bottomTextWrap.id = "bottom-text-wrap";
-  Object.assign(bottomTextWrap.style, {
-    position: "fixed",
-    bottom: "8%",
-    left: "50%",
-    transform: "translateX(-50%)",
-    pointerEvents: "none",
-    zIndex: "999",
-    width: "100%",
-    maxWidth: "400px",
-  });
-  document.body.appendChild(bottomTextWrap);
-
-  var bottomTextElA = document.createElement("div");
-  var bottomTextElB = document.createElement("div");
-  [bottomTextElA, bottomTextElB].forEach(function (el) {
-    Object.assign(el.style, {
-      position: "absolute",
-      left: "50%",
-      transform: "translateX(-50%)",
-      color: "#fff",
-      fontSize: "18px",
-      fontFamily: "system-ui, sans-serif",
-      textAlign: "center",
-      opacity: "0",
-      width: "100%",
-    });
-    bottomTextWrap.appendChild(el);
-  });
-
-  // --- Vignette overlay ---
-
-  const vignetteEl = document.createElement("div");
-  vignetteEl.id = "vignette";
-  Object.assign(vignetteEl.style, {
-    position: "fixed",
-    inset: "0",
-    pointerEvents: "none",
-    zIndex: "500",
-    background: "radial-gradient(ellipse 75% 75% at 50% 50%, transparent 55%, rgba(0,0,0,0.15) 80%, rgba(0,0,0,0.35) 100%)",
-  });
-  document.body.appendChild(vignetteEl);
-
-  var bottomTextActive = 0;
   function getBottomTextEl() {
     return bottomTextActive === 0 ? bottomTextElA : bottomTextElB;
   }
@@ -172,79 +331,17 @@
     return bottomTextActive === 0 ? bottomTextElB : bottomTextElA;
   }
 
-  // --- Zoom helpers ---
-
-  function clampZoom(value) {
-    return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
-  }
-
-  function applyZoom() {
-    grid.style.transform = "scale(" + zoom + ")";
-  }
-
-  // zoomCenter: grid coords (0–7). Convert to percentage of grid dimensions for transform-origin.
-  function setZoomOrigin(center) {
-    currentZoomCenter = center;
-    if (center && typeof center.x === "number" && typeof center.y === "number") {
-      var px = ((center.x + 0.5) / GRID_SIZE) * 100;
-      var py = ((center.y + 0.5) / GRID_SIZE) * 100;
-      grid.style.transformOrigin = px + "% " + py + "%";
-    } else {
-      grid.style.transformOrigin = "50% 50%";
-    }
-  }
-
-  function killSceneZoomTween() {
-    if (sceneZoomTween) {
-      sceneZoomTween.kill();
-      sceneZoomTween = null;
-    }
-  }
-
-  // --- Desktop: scroll-wheel zoom (smooth; kills scene zoom so it doesn't interfere) ---
-
-  document.addEventListener(
-    "wheel",
-    function (e) {
-      if (!userZoomEnabled) return;
-      killSceneZoomTween();
-      e.preventDefault();
-      var delta = -e.deltaY * 0.002;
-      zoom = clampZoom(zoom + zoom * delta);
-      applyZoom();
-    },
-    { passive: false }
-  );
-
-  // --- Mobile: pinch-to-zoom (smooth; kills scene zoom so it doesn't interfere) ---
-
-  function getTouchDistance(touches) {
-    var dx = touches[1].clientX - touches[0].clientX;
-    var dy = touches[1].clientY - touches[0].clientY;
-    return Math.hypot(dx, dy);
-  }
-
-  document.addEventListener("touchstart", function (e) {
-    if (!userZoomEnabled) return;
-    if (e.touches.length === 2) {
-      killSceneZoomTween();
-      e.preventDefault();
-      pinchStartDistance = getTouchDistance(e.touches);
-      pinchStartZoom = zoom;
-    }
-  }, { passive: false });
-
-  document.addEventListener("touchmove", function (e) {
-    if (!userZoomEnabled) return;
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      var currentDistance = getTouchDistance(e.touches);
-      zoom = clampZoom(pinchStartZoom * (currentDistance / pinchStartDistance));
-      applyZoom();
-    }
-  }, { passive: false });
-
   // --- Cell helpers ---
+
+  function getBlockAt(row, col) {
+    var scene = window.Scenes && window.Scenes[currentScene];
+    if (!scene || !Array.isArray(scene.blocks)) return null;
+    for (var i = 0; i < scene.blocks.length; i++) {
+      var b = scene.blocks[i];
+      if (b.x === col && b.y === row) return b;
+    }
+    return null;
+  }
 
   function getCell(row, col) {
     if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return null;
@@ -285,12 +382,12 @@
     return el;
   }
 
-  function makeImageEl(src, x, y) {
+  function makeImageEl(src, x, y, fit) {
     var img = document.createElement("img");
     Object.assign(img.style, {
       width: "100%",
       height: "100%",
-      objectFit: "cover",
+      objectFit: (fit === "contain" ? "contain" : "cover"),
       display: "block",
     });
     img.onerror = function () {
@@ -304,27 +401,25 @@
     return img;
   }
 
-  // Set cell content without any animation — purely a DOM operation
-  function setCellContent(cell, block) {
+  function setCellContent(cell, block, scene) {
     var x = block.x;
     var y = block.y;
     var hasImage = !!block.image;
     var sepiaAmount = block.sepia === true ? 1 : (typeof block.sepia === "number" ? block.sepia : 0);
 
-    // Kill any running GSAP on this cell to prevent conflicts
     gsap.killTweensOf(cell);
 
     cell.innerHTML = "";
     cell.style.filter = sepiaAmount > 0 ? "sepia(" + sepiaAmount + ")" : "";
 
     if (block.visible === false) {
-      // Hidden block: keep invisible
       cell.style.opacity = "0";
       return;
     }
 
     if (hasImage) {
-      cell.appendChild(makeImageEl(block.image, x, y));
+      var fit = (block.imageFit || (scene && scene.imageFit) || "cover");
+      cell.appendChild(makeImageEl(block.image, x, y, fit));
     } else {
       cell.appendChild(makePlaceholder(x, y));
     }
@@ -341,6 +436,10 @@
       document.removeEventListener("click", sceneClickHandler);
       sceneClickHandler = null;
     }
+    cellClickHandlers.forEach(function (entry) {
+      entry.cell.removeEventListener("click", entry.handler);
+    });
+    cellClickHandlers = [];
   }
 
   function goToScene(n, opts) {
@@ -352,9 +451,9 @@
     var duration = silent ? 0 : (opts.duration !== undefined ? opts.duration : TRANSITION_DURATION);
 
     teardownTransition();
-    killSceneZoomTween();
 
     var prevSceneIndex = currentScene;
+    var prevScene = prevSceneIndex >= 0 && scenes[prevSceneIndex] ? scenes[prevSceneIndex] : null;
     var prevBlocks = prevSceneIndex >= 0 && scenes[prevSceneIndex] && Array.isArray(scenes[prevSceneIndex].blocks)
       ? scenes[prevSceneIndex].blocks
       : [];
@@ -366,7 +465,6 @@
     var prevMap = blocksMap(prevBlocks);
     var nextMap = blocksMap(nextBlocks);
 
-    // Classify cells
     var persistentKeys = [];
     Object.keys(nextMap).forEach(function (k) {
       if (prevMap[k]) persistentKeys.push(k);
@@ -374,25 +472,32 @@
     var appearingKeys = Object.keys(nextMap).filter(function (k) { return !prevMap[k]; });
     var disappearingKeys = Object.keys(prevMap).filter(function (k) { return !nextMap[k]; });
 
-    // --- Preload images, then animate ---
     var doTransition = function () {
       isTransitioning = duration > 0;
 
-      // Master timeline for the entire transition
+      if (!nextScene.breakoutGrid) {
+        teardownBreakout();
+      }
+
       var tl = duration > 0 ? gsap.timeline({
         onComplete: function () {
-          sceneZoomTween = null;
           isTransitioning = false;
+          if (nextScene.breakoutGrid) {
+            showBreakoutGrid(nextScene);
+          }
         }
       }) : null;
 
-      if (tl) sceneZoomTween = tl;
+      if (nextScene.breakoutGrid) {
+        gridClipWrapper.style.visibility = "hidden";
+        if (duration === 0) {
+          showBreakoutGrid(nextScene);
+          isTransitioning = false;
+        }
+      }
 
-      // --- 1. Set zoom origin BEFORE animating ---
-      setZoomOrigin(nextScene.zoomCenter || null);
-      var targetZoom = typeof nextScene.zoom === "number" ? clampZoom(nextScene.zoom) : zoom;
-
-      // --- 2. Fade out disappearing cells ---
+      // --- 1. Fade out disappearing cells (skip when entering breakout) ---
+      if (!nextScene.breakoutGrid) {
       disappearingKeys.forEach(function (k) {
         var b = prevMap[k];
         var c = getCell(b.y, b.x);
@@ -415,7 +520,7 @@
         }
       });
 
-      // --- 3. Handle persistent cells (same grid position in both scenes) ---
+      // --- 2. Handle persistent cells ---
       persistentKeys.forEach(function (k) {
         var prevBlock = prevMap[k];
         var nextBlock = nextMap[k];
@@ -428,26 +533,32 @@
 
         if (contentChanged) {
           if (duration > 0) {
-            // Crossfade: fade out old, swap content, fade in new
             tl.to(c, {
               opacity: 0,
               duration: duration * 0.3,
               ease: TRANSITION_EASE,
               onComplete: function () {
-                setCellContent(c, nextBlock);
+                setCellContent(c, nextBlock, nextScene);
+                var img = c.querySelector("img");
+                var doFadeIn = function () {
+                  gsap.to(c, {
+                    opacity: nextBlock.visible === false ? 0 : 1,
+                    duration: duration * 0.3,
+                    ease: TRANSITION_EASE,
+                  });
+                };
+                if (img && typeof img.decode === "function") {
+                  img.decode().then(doFadeIn).catch(doFadeIn);
+                } else {
+                  doFadeIn();
+                }
               },
             }, 0);
-            tl.to(c, {
-              opacity: nextBlock.visible === false ? 0 : 1,
-              duration: duration * 0.3,
-              ease: TRANSITION_EASE,
-            }, duration * 0.35);
           } else {
-            setCellContent(c, nextBlock);
+            setCellContent(c, nextBlock, nextScene);
             c.style.opacity = nextBlock.visible === false ? "0" : "1";
           }
         } else {
-          // No content change — just ensure correct opacity
           if (nextBlock.visible === false) {
             if (duration > 0) {
               tl.to(c, { opacity: 0, duration: duration * 0.3, ease: TRANSITION_EASE }, 0);
@@ -455,27 +566,22 @@
               c.style.opacity = "0";
             }
           }
-          // Otherwise leave it as-is (already visible)
         }
       });
 
-      // --- 4. Appearing cells: set content while invisible, then fade in ---
+      // --- 3. Appearing cells ---
       appearingKeys.forEach(function (k) {
         var b = nextMap[k];
         var c = getCell(b.y, b.x);
         if (!c) return;
 
         gsap.killTweensOf(c);
-        c.style.opacity = "0"; // Ensure invisible before setting content
-        setCellContent(c, b);
+        c.style.opacity = "0";
+        setCellContent(c, b, nextScene);
 
-        if (b.visible === false) {
-          // Stays hidden
-          return;
-        }
+        if (b.visible === false) return;
 
         if (duration > 0) {
-          // Slight delay so disappearing cells clear first
           tl.to(c, {
             opacity: 1,
             duration: duration * 0.5,
@@ -486,7 +592,7 @@
         }
       });
 
-      // --- 5. Cells not in either scene: ensure hidden (no flash) ---
+      // --- 4. Cells not in either scene: ensure hidden ---
       for (var row = 0; row < GRID_SIZE; row++) {
         for (var col = 0; col < GRID_SIZE; col++) {
           var key = col + "," + row;
@@ -501,40 +607,89 @@
         }
       }
 
-      // --- 6. Animate zoom ---
-      if (duration > 0) {
-        var zoomProxy = { s: zoom };
-        tl.to(zoomProxy, {
-          s: targetZoom,
-          duration: duration,
-          ease: TRANSITION_EASE,
-          onUpdate: function () {
-            zoom = zoomProxy.s;
-            applyZoom();
-          },
-        }, 0);
+      // --- 5. Zoom ---
+      var zoom = typeof nextScene.zoom === "number" ? nextScene.zoom : 1;
+      var zc = nextScene.zoomCenter;
+      var ox = (zc && typeof zc.x === "number") ? ((zc.x + 0.5) / 3 * 100) : 50;
+      var oy = (zc && typeof zc.y === "number") ? ((zc.y + 0.5) / 3 * 100) : 50;
+      grid.style.transformOrigin = ox + "% " + oy + "%";
+      grid.style.transform = "scale(" + zoom + ")";
+      if (zoom > 1) {
+        var cellW = "calc(100vw / " + zoom + ")";
+        var cellH = "calc(100vh / " + zoom + ")";
+        grid.style.gridTemplateColumns = "repeat(" + GRID_SIZE + ", " + cellW + ")";
+        grid.style.gridTemplateRows = "repeat(" + GRID_SIZE + ", " + cellH + ")";
+        cells.forEach(function (cell) {
+          cell.style.width = cellW;
+          cell.style.height = cellH;
+        });
       } else {
-        zoom = targetZoom;
-        applyZoom();
+        grid.style.gridTemplateColumns = "repeat(" + GRID_SIZE + ", " + CELL_SIZE + ")";
+        grid.style.gridTemplateRows = "repeat(" + GRID_SIZE + ", " + CELL_SIZE + ")";
+        cells.forEach(function (cell) {
+          cell.style.width = CELL_SIZE;
+          cell.style.height = CELL_SIZE;
+        });
+      }
+      }
+
+      // --- 6. Cursor and tooltip ---
+      document.body.style.cursor = nextScene.cursor || "default";
+      if (nextScene.tooltipVisible && nextScene.cursorTooltip != null && nextScene.cursorTooltip !== "") {
+        tooltipActive = true;
+        tooltipEl.textContent = nextScene.cursorTooltip;
+        tooltipEl.style.display = "block";
+        if (typeof gsap !== "undefined") {
+          gsap.to(tooltipEl, { opacity: 1, duration: 0.2, ease: TRANSITION_EASE });
+        } else {
+          tooltipEl.style.opacity = "1";
+        }
+      } else {
+        tooltipActive = false;
+        if (typeof gsap !== "undefined") {
+          gsap.to(tooltipEl, {
+            opacity: 0,
+            duration: 0.2,
+            ease: TRANSITION_EASE,
+            onComplete: function () {
+              tooltipEl.style.display = "none";
+            },
+          });
+        } else {
+          tooltipEl.style.display = "none";
+          tooltipEl.style.opacity = "0";
+        }
       }
 
       // --- 7. Bottom text crossfade ---
+      var prevText = prevScene && prevScene.bottomText ? prevScene.bottomText : "";
+      var nextText = nextScene.bottomText ? nextScene.bottomText : "";
+      var textUnchanged = prevText === nextText && nextText !== "";
+
       if (duration > 0) {
         if (nextScene.bottomText) {
-          var outEl = getBottomTextEl();
-          var inEl = getBottomTextInactive();
-          inEl.textContent = nextScene.bottomText;
-          inEl.style.opacity = "0";
-          tl.to(outEl, { opacity: 0, duration: duration * 0.4, ease: TRANSITION_EASE }, 0);
-          tl.to(inEl, { opacity: 1, duration: duration * 0.4, ease: TRANSITION_EASE }, duration * 0.25);
-          bottomTextActive = 1 - bottomTextActive;
+          if (textUnchanged) {
+            // Same text: keep visible, no animation
+            var el = getBottomTextEl();
+            el.textContent = nextText;
+            el.style.opacity = "1";
+            getBottomTextInactive().style.opacity = "0";
+          } else {
+            var outEl = getBottomTextEl();
+            var inEl = getBottomTextInactive();
+            inEl.textContent = nextText;
+            inEl.style.opacity = "0";
+            tl.to(outEl, { opacity: 0, duration: duration * 0.4, ease: TRANSITION_EASE }, 0);
+            tl.to(inEl, { opacity: 1, duration: duration * 0.4, ease: TRANSITION_EASE }, duration * 0.25);
+            bottomTextActive = 1 - bottomTextActive;
+          }
         } else {
           tl.to(getBottomTextEl(), { opacity: 0, duration: duration * 0.3, ease: TRANSITION_EASE }, 0);
         }
       } else {
         if (nextScene.bottomText) {
           var el = getBottomTextEl();
-          el.textContent = nextScene.bottomText;
+          el.textContent = nextText;
           el.style.opacity = "1";
           getBottomTextInactive().style.opacity = "0";
         } else {
@@ -542,44 +697,43 @@
         }
       }
 
-      // --- Non-animated UI ---
-      userZoomEnabled = !!nextScene.userZoomEnabled;
-      document.body.style.cursor = nextScene.cursor || "default";
-
-      // Tooltip
-      if (nextScene.tooltipVisible && nextScene.cursorTooltip != null && nextScene.cursorTooltip !== "") {
-        tooltipActive = true;
-        tooltipEl.textContent = nextScene.cursorTooltip;
-        tooltipEl.style.display = "block";
-        gsap.to(tooltipEl, { opacity: 1, duration: 0.3, ease: TRANSITION_EASE });
-      } else {
-        tooltipActive = false;
-        gsap.to(tooltipEl, {
-          opacity: 0, duration: 0.2, ease: TRANSITION_EASE, onComplete: function () {
-            tooltipEl.style.display = "none";
-          }
-        });
-      }
-
-      // --- Transition: auto or click ---
+      // --- 8. Click or auto advance ---
       if (nextScene.transition === "auto" && typeof nextScene.autoDuration === "number") {
         autoTimer = setTimeout(function () {
           goToScene(currentScene + 1);
         }, nextScene.autoDuration);
       } else if (nextScene.transition === "click") {
-        sceneClickHandler = function () {
-          if (isTransitioning) return; // Block clicks during animation
-          document.removeEventListener("click", sceneClickHandler);
-          sceneClickHandler = null;
-          goToScene(currentScene + 1);
-        };
-        document.addEventListener("click", sceneClickHandler);
+        var clickableBlocks = (nextScene.blocks || []).filter(function (b) { return b.clickable === true; });
+        if (clickableBlocks.length > 0) {
+          clickableBlocks.forEach(function (block) {
+            var c = getCell(block.y, block.x);
+            if (!c) return;
+            var handler = function (e) {
+              e.stopPropagation();
+              if (isTransitioning) return;
+              cellClickHandlers.forEach(function (entry) {
+                entry.cell.removeEventListener("click", entry.handler);
+              });
+              cellClickHandlers = [];
+              goToScene(currentScene + 1);
+            };
+            c.addEventListener("click", handler);
+            cellClickHandlers.push({ cell: c, handler: handler });
+          });
+        } else {
+          sceneClickHandler = function () {
+            if (isTransitioning) return;
+            document.removeEventListener("click", sceneClickHandler);
+            sceneClickHandler = null;
+            goToScene(currentScene + 1);
+          };
+          document.addEventListener("click", sceneClickHandler);
+        }
       }
 
       if (isDev && window.EngineRefreshDevSelect) window.EngineRefreshDevSelect();
     };
 
-    // Preload images for the next scene before transitioning
     if (duration > 0) {
       preloadSceneImages(nextScene).then(doTransition);
     } else {
@@ -710,7 +864,6 @@
     goToScene: goToScene,
 
     start: function () {
-      // Preload first scene images before starting
       var scenes = window.Scenes;
       if (scenes && scenes.length > 0) {
         preloadSceneImages(scenes[0]).then(function () {
@@ -756,15 +909,6 @@
     hideCell: function (row, col) {
       var c = getCell(row, col);
       if (c) c.style.opacity = "0";
-    },
-
-    getZoom: function () {
-      return zoom;
-    },
-
-    setZoom: function (value) {
-      zoom = clampZoom(value);
-      applyZoom();
     },
   };
 })();
