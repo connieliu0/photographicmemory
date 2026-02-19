@@ -14,12 +14,13 @@
   let sceneClickHandler = null;
   let pinchStartDistance = 0;
   let pinchStartZoom = 1;
+  let isTransitioning = false; // Block clicks during transitions
 
   if (typeof Flip === "undefined") {
     console.warn("Engine: GSAP Flip plugin not loaded.");
   }
   if (typeof gsap !== "undefined") {
-    gsap.defaults.ease = TRANSITION_EASE;
+    gsap.defaults({ ease: TRANSITION_EASE });
   }
 
   // --- DOM setup ---
@@ -58,12 +59,39 @@
       overflow: "hidden",
       position: "relative",
       border: "1px solid white",
+      opacity: "0", // Start all cells hidden
     });
     grid.appendChild(cell);
     cells.push(cell);
   }
 
-  // --- Custom cursor tooltip (only renders when tooltipVisible && cursorTooltip) ---
+  // --- Image preloader cache ---
+  var imageCache = {};
+
+  function preloadImage(src) {
+    if (!src || imageCache[src]) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        imageCache[src] = true;
+        resolve();
+      };
+      img.onerror = function () {
+        resolve(); // Don't block on failed loads
+      };
+      img.src = src;
+    });
+  }
+
+  function preloadSceneImages(scene) {
+    if (!scene || !Array.isArray(scene.blocks)) return Promise.resolve();
+    var promises = scene.blocks
+      .filter(function (b) { return b.image && b.visible !== false; })
+      .map(function (b) { return preloadImage(b.image); });
+    return Promise.all(promises);
+  }
+
+  // --- Custom cursor tooltip ---
 
   var tooltipActive = false;
   const tooltipEl = document.createElement("div");
@@ -236,7 +264,7 @@
     return map;
   }
 
-  // --- Block visual states: hidden (invisible, takes space), visible (grey + coords), sepia (visible + filter) ---
+  // --- Block rendering ---
 
   function makePlaceholder(x, y) {
     var el = document.createElement("div");
@@ -257,95 +285,49 @@
     return el;
   }
 
-  function applyBlockToCell(cell, block, animate, duration) {
-    var x = block.x;
-    var y = block.y;
-    var isHidden = block.visible === false;
-    var hasImage = !!block.image;
-    var sepiaAmount = block.sepia === true ? 1 : (typeof block.sepia === "number" ? block.sepia : 0);
-
-    cell.innerHTML = "";
-    cell.style.filter = "";
-    cell.style.opacity = "";
-
-    if (isHidden) {
-      cell.style.visibility = "visible";
-      if (animate && duration > 0) {
-        gsap.to(cell, { opacity: 0, duration: duration, ease: TRANSITION_EASE });
-      } else {
-        cell.style.opacity = "0";
+  function makeImageEl(src, x, y) {
+    var img = document.createElement("img");
+    Object.assign(img.style, {
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      display: "block",
+    });
+    img.onerror = function () {
+      var parent = img.parentNode;
+      if (parent) {
+        parent.removeChild(img);
+        parent.appendChild(makePlaceholder(x, y));
       }
-      return;
-    }
-
-    cell.style.visibility = "visible";
-    if (hasImage) {
-      var img = document.createElement("img");
-      Object.assign(img.style, {
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        display: "block",
-      });
-      img.onerror = function () {
-        cell.removeChild(img);
-        cell.appendChild(makePlaceholder(x, y));
-      };
-      img.src = block.image;
-      cell.appendChild(img);
-    } else {
-      cell.appendChild(makePlaceholder(x, y));
-    }
-
-    if (sepiaAmount > 0) {
-      cell.style.filter = "sepia(" + sepiaAmount + ")";
-    }
-
-    if (animate && duration > 0) {
-      gsap.fromTo(cell, { opacity: 0 }, { opacity: 1, duration: duration, ease: TRANSITION_EASE });
-    } else {
-      cell.style.opacity = "1";
-    }
+    };
+    img.src = src;
+    return img;
   }
 
-  function applyBlockToCellInstant(cell, block) {
+  // Set cell content without any animation — purely a DOM operation
+  function setCellContent(cell, block) {
     var x = block.x;
     var y = block.y;
-    var isHidden = block.visible === false;
     var hasImage = !!block.image;
     var sepiaAmount = block.sepia === true ? 1 : (typeof block.sepia === "number" ? block.sepia : 0);
 
-    cell.innerHTML = "";
-    cell.style.filter = "";
-    cell.style.opacity = "";
-    cell.style.visibility = isHidden ? "visible" : "visible";
+    // Kill any running GSAP on this cell to prevent conflicts
+    gsap.killTweensOf(cell);
 
-    if (isHidden) {
+    cell.innerHTML = "";
+    cell.style.filter = sepiaAmount > 0 ? "sepia(" + sepiaAmount + ")" : "";
+
+    if (block.visible === false) {
+      // Hidden block: keep invisible
       cell.style.opacity = "0";
       return;
     }
 
     if (hasImage) {
-      var img = document.createElement("img");
-      Object.assign(img.style, {
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        display: "block",
-      });
-      img.onerror = function () {
-        cell.removeChild(img);
-        cell.appendChild(makePlaceholder(x, y));
-      };
-      img.src = block.image;
-      cell.appendChild(img);
+      cell.appendChild(makeImageEl(block.image, x, y));
     } else {
       cell.appendChild(makePlaceholder(x, y));
     }
-    if (sepiaAmount > 0) {
-      cell.style.filter = "sepia(" + sepiaAmount + ")";
-    }
-    cell.style.opacity = "1";
   }
 
   // --- Scene state machine ---
@@ -370,6 +352,8 @@
     var duration = silent ? 0 : (opts.duration !== undefined ? opts.duration : TRANSITION_DURATION);
 
     teardownTransition();
+    killSceneZoomTween();
+
     var prevSceneIndex = currentScene;
     var prevBlocks = prevSceneIndex >= 0 && scenes[prevSceneIndex] && Array.isArray(scenes[prevSceneIndex].blocks)
       ? scenes[prevSceneIndex].blocks
@@ -381,6 +365,8 @@
 
     var prevMap = blocksMap(prevBlocks);
     var nextMap = blocksMap(nextBlocks);
+
+    // Classify cells
     var persistentKeys = [];
     Object.keys(nextMap).forEach(function (k) {
       if (prevMap[k]) persistentKeys.push(k);
@@ -388,169 +374,217 @@
     var appearingKeys = Object.keys(nextMap).filter(function (k) { return !prevMap[k]; });
     var disappearingKeys = Object.keys(prevMap).filter(function (k) { return !nextMap[k]; });
 
-    var persistentCells = persistentKeys.map(function (k) {
-      var b = nextMap[k];
-      return getCell(b.y, b.x);
-    }).filter(Boolean);
+    // --- Preload images, then animate ---
+    var doTransition = function () {
+      isTransitioning = duration > 0;
 
-    // --- 1. Record FLIP state for persistent cells (before any DOM/layout change) ---
-    var flipState = null;
-    if (!silent && persistentCells.length > 0 && typeof Flip !== "undefined") {
-      flipState = Flip.getState(persistentCells);
-    }
+      // Master timeline for the entire transition
+      var tl = duration > 0 ? gsap.timeline({
+        onComplete: function () {
+          sceneZoomTween = null;
+          isTransitioning = false;
+        }
+      }) : null;
 
-    // --- 2. Set zoom origin and target zoom ---
-    setZoomOrigin(nextScene.zoomCenter || null);
-    var targetZoom = typeof nextScene.zoom === "number" ? clampZoom(nextScene.zoom) : zoom;
+      if (tl) sceneZoomTween = tl;
 
-    // --- 3. Apply block content: disappearing fade out; others apply content ---
-    var disappearingCells = disappearingKeys.map(function (k) {
-      var b = prevMap[k];
-      return getCell(b.y, b.x);
-    }).filter(Boolean);
+      // --- 1. Set zoom origin BEFORE animating ---
+      setZoomOrigin(nextScene.zoomCenter || null);
+      var targetZoom = typeof nextScene.zoom === "number" ? clampZoom(nextScene.zoom) : zoom;
 
-    if (duration > 0) {
-      disappearingCells.forEach(function (c) {
-        gsap.to(c, {
-          opacity: 0,
-          duration: duration * 0.5,
-          ease: TRANSITION_EASE,
-          onComplete: function () {
-            c.innerHTML = "";
-            c.style.filter = "";
-          },
-        });
-      });
-    } else {
-      disappearingCells.forEach(function (c) {
-        c.innerHTML = "";
-        c.style.opacity = "0";
-        c.style.filter = "";
-      });
-    }
-
-    // Clear cells not in next scene (after fade we'll clear; for silent we clear now)
-    cells.forEach(function (c) {
-      c.style.visibility = "visible";
-    });
-
-    persistentKeys.forEach(function (k) {
-      var b = nextMap[k];
-      var c = getCell(b.y, b.x);
-      if (!c) return;
-      applyBlockToCell(c, b, false, 0);
-      if (duration > 0) {
-        c.style.opacity = "0";
-        gsap.to(c, { opacity: 1, duration: duration * 0.5, ease: TRANSITION_EASE });
-      }
-    });
-    appearingKeys.forEach(function (k) {
-      var b = nextMap[k];
-      var c = getCell(b.y, b.x);
-      if (c) applyBlockToCell(c, b, duration > 0, duration);
-    });
-
-    // Cells that are in neither scene: hide (invisible, take space)
-    for (var row = 0; row < GRID_SIZE; row++) {
-      for (var col = 0; col < GRID_SIZE; col++) {
-        var key = col + "," + row;
-        if (nextMap[key] || prevMap[key]) continue;
-        var c = getCell(row, col);
-        if (c) {
+      // --- 2. Fade out disappearing cells ---
+      disappearingKeys.forEach(function (k) {
+        var b = prevMap[k];
+        var c = getCell(b.y, b.x);
+        if (!c) return;
+        if (duration > 0) {
+          tl.to(c, {
+            opacity: 0,
+            duration: duration * 0.4,
+            ease: TRANSITION_EASE,
+            onComplete: function () {
+              c.innerHTML = "";
+              c.style.filter = "";
+            },
+          }, 0);
+        } else {
+          gsap.killTweensOf(c);
           c.innerHTML = "";
-          c.style.visibility = "visible";
           c.style.opacity = "0";
           c.style.filter = "";
         }
+      });
+
+      // --- 3. Handle persistent cells (same grid position in both scenes) ---
+      persistentKeys.forEach(function (k) {
+        var prevBlock = prevMap[k];
+        var nextBlock = nextMap[k];
+        var c = getCell(nextBlock.y, nextBlock.x);
+        if (!c) return;
+
+        var contentChanged = prevBlock.image !== nextBlock.image ||
+          prevBlock.visible !== nextBlock.visible ||
+          prevBlock.sepia !== nextBlock.sepia;
+
+        if (contentChanged) {
+          if (duration > 0) {
+            // Crossfade: fade out old, swap content, fade in new
+            tl.to(c, {
+              opacity: 0,
+              duration: duration * 0.3,
+              ease: TRANSITION_EASE,
+              onComplete: function () {
+                setCellContent(c, nextBlock);
+              },
+            }, 0);
+            tl.to(c, {
+              opacity: nextBlock.visible === false ? 0 : 1,
+              duration: duration * 0.3,
+              ease: TRANSITION_EASE,
+            }, duration * 0.35);
+          } else {
+            setCellContent(c, nextBlock);
+            c.style.opacity = nextBlock.visible === false ? "0" : "1";
+          }
+        } else {
+          // No content change — just ensure correct opacity
+          if (nextBlock.visible === false) {
+            if (duration > 0) {
+              tl.to(c, { opacity: 0, duration: duration * 0.3, ease: TRANSITION_EASE }, 0);
+            } else {
+              c.style.opacity = "0";
+            }
+          }
+          // Otherwise leave it as-is (already visible)
+        }
+      });
+
+      // --- 4. Appearing cells: set content while invisible, then fade in ---
+      appearingKeys.forEach(function (k) {
+        var b = nextMap[k];
+        var c = getCell(b.y, b.x);
+        if (!c) return;
+
+        gsap.killTweensOf(c);
+        c.style.opacity = "0"; // Ensure invisible before setting content
+        setCellContent(c, b);
+
+        if (b.visible === false) {
+          // Stays hidden
+          return;
+        }
+
+        if (duration > 0) {
+          // Slight delay so disappearing cells clear first
+          tl.to(c, {
+            opacity: 1,
+            duration: duration * 0.5,
+            ease: TRANSITION_EASE,
+          }, duration * 0.2);
+        } else {
+          c.style.opacity = "1";
+        }
+      });
+
+      // --- 5. Cells not in either scene: ensure hidden (no flash) ---
+      for (var row = 0; row < GRID_SIZE; row++) {
+        for (var col = 0; col < GRID_SIZE; col++) {
+          var key = col + "," + row;
+          if (nextMap[key] || prevMap[key]) continue;
+          var c = getCell(row, col);
+          if (c) {
+            gsap.killTweensOf(c);
+            c.innerHTML = "";
+            c.style.opacity = "0";
+            c.style.filter = "";
+          }
+        }
       }
-    }
 
-    // --- 4. Grid scale and FLIP: either set scale to target for FLIP, or leave for gsap.to ---
-    var useFlip = duration > 0 && flipState && persistentCells.length > 0 && typeof Flip !== "undefined";
-    if (useFlip) {
-      zoom = targetZoom;
-      applyZoom();
-    }
-
-    // --- 5. Animate: grid scale (gsap.to) and/or FLIP, bottom text crossfade ---
-    if (duration > 0) {
-      var tl = gsap.timeline();
-      sceneZoomTween = tl;
-
-      if (useFlip) {
-        tl.add(Flip.from(flipState, { duration: duration, ease: TRANSITION_EASE }), 0);
-      } else {
-        var scaleProxy = { s: zoom };
-        tl.to(scaleProxy, {
+      // --- 6. Animate zoom ---
+      if (duration > 0) {
+        var zoomProxy = { s: zoom };
+        tl.to(zoomProxy, {
           s: targetZoom,
           duration: duration,
           ease: TRANSITION_EASE,
           onUpdate: function () {
-            zoom = scaleProxy.s;
+            zoom = zoomProxy.s;
             applyZoom();
           },
-          onKill: function () {
-            sceneZoomTween = null;
-          },
         }, 0);
-      }
-
-      // Bottom text crossfade
-      if (nextScene.bottomText) {
-        var outEl = getBottomTextEl();
-        var inEl = getBottomTextInactive();
-        inEl.textContent = nextScene.bottomText;
-        inEl.style.opacity = "0";
-        tl.to(outEl, { opacity: 0, duration: duration * 0.4, ease: TRANSITION_EASE }, 0);
-        tl.to(inEl, { opacity: 1, duration: duration * 0.4, ease: TRANSITION_EASE, delay: duration * 0.2 }, 0);
-        bottomTextActive = 1 - bottomTextActive;
       } else {
-        tl.to(getBottomTextEl(), { opacity: 0, duration: duration * 0.3, ease: TRANSITION_EASE }, 0);
+        zoom = targetZoom;
+        applyZoom();
       }
-      tl.eventCallback("onComplete", function () { sceneZoomTween = null; });
-    } else {
-      if (nextScene.bottomText) {
-        var el = getBottomTextEl();
-        el.textContent = nextScene.bottomText;
-        el.style.opacity = "1";
-        getBottomTextInactive().style.opacity = "0";
+
+      // --- 7. Bottom text crossfade ---
+      if (duration > 0) {
+        if (nextScene.bottomText) {
+          var outEl = getBottomTextEl();
+          var inEl = getBottomTextInactive();
+          inEl.textContent = nextScene.bottomText;
+          inEl.style.opacity = "0";
+          tl.to(outEl, { opacity: 0, duration: duration * 0.4, ease: TRANSITION_EASE }, 0);
+          tl.to(inEl, { opacity: 1, duration: duration * 0.4, ease: TRANSITION_EASE }, duration * 0.25);
+          bottomTextActive = 1 - bottomTextActive;
+        } else {
+          tl.to(getBottomTextEl(), { opacity: 0, duration: duration * 0.3, ease: TRANSITION_EASE }, 0);
+        }
       } else {
-        getBottomTextEl().style.opacity = "0";
+        if (nextScene.bottomText) {
+          var el = getBottomTextEl();
+          el.textContent = nextScene.bottomText;
+          el.style.opacity = "1";
+          getBottomTextInactive().style.opacity = "0";
+        } else {
+          getBottomTextEl().style.opacity = "0";
+        }
       }
-    }
 
-    // --- Non-animated UI ---
-    userZoomEnabled = false; // User zoom off for now; only system zoom
-    document.body.style.cursor = nextScene.cursor || "default";
+      // --- Non-animated UI ---
+      userZoomEnabled = !!nextScene.userZoomEnabled;
+      document.body.style.cursor = nextScene.cursor || "default";
 
-    // Tooltip: only show element when tooltipVisible and cursorTooltip are both set
-    if (nextScene.tooltipVisible && nextScene.cursorTooltip != null && nextScene.cursorTooltip !== "") {
-      tooltipActive = true;
-      tooltipEl.textContent = nextScene.cursorTooltip;
-      tooltipEl.style.display = "block";
-      gsap.to(tooltipEl, { opacity: 1, duration: 0.3, ease: TRANSITION_EASE });
+      // Tooltip
+      if (nextScene.tooltipVisible && nextScene.cursorTooltip != null && nextScene.cursorTooltip !== "") {
+        tooltipActive = true;
+        tooltipEl.textContent = nextScene.cursorTooltip;
+        tooltipEl.style.display = "block";
+        gsap.to(tooltipEl, { opacity: 1, duration: 0.3, ease: TRANSITION_EASE });
+      } else {
+        tooltipActive = false;
+        gsap.to(tooltipEl, {
+          opacity: 0, duration: 0.2, ease: TRANSITION_EASE, onComplete: function () {
+            tooltipEl.style.display = "none";
+          }
+        });
+      }
+
+      // --- Transition: auto or click ---
+      if (nextScene.transition === "auto" && typeof nextScene.autoDuration === "number") {
+        autoTimer = setTimeout(function () {
+          goToScene(currentScene + 1);
+        }, nextScene.autoDuration);
+      } else if (nextScene.transition === "click") {
+        sceneClickHandler = function () {
+          if (isTransitioning) return; // Block clicks during animation
+          document.removeEventListener("click", sceneClickHandler);
+          sceneClickHandler = null;
+          goToScene(currentScene + 1);
+        };
+        document.addEventListener("click", sceneClickHandler);
+      }
+
+      if (isDev && window.EngineRefreshDevSelect) window.EngineRefreshDevSelect();
+    };
+
+    // Preload images for the next scene before transitioning
+    if (duration > 0) {
+      preloadSceneImages(nextScene).then(doTransition);
     } else {
-      tooltipActive = false;
-      gsap.to(tooltipEl, { opacity: 0, duration: 0.2, ease: TRANSITION_EASE, onComplete: function () {
-        tooltipEl.style.display = "none";
-      } });
+      doTransition();
     }
-
-    // --- Transition: auto or click ---
-    if (nextScene.transition === "auto" && typeof nextScene.autoDuration === "number") {
-      autoTimer = setTimeout(function () {
-        goToScene(currentScene + 1);
-      }, nextScene.autoDuration);
-    } else if (nextScene.transition === "click") {
-      sceneClickHandler = function () {
-        document.removeEventListener("click", sceneClickHandler);
-        sceneClickHandler = null;
-        goToScene(currentScene + 1);
-      };
-      document.addEventListener("click", sceneClickHandler);
-    }
-
-    if (isDev && window.EngineRefreshDevSelect) window.EngineRefreshDevSelect();
   }
 
   // --- Dev mode overlay (?dev) ---
@@ -637,7 +671,8 @@
       refreshDevSelect();
     });
 
-    devPrev.addEventListener("click", function () {
+    devPrev.addEventListener("click", function (e) {
+      e.stopPropagation();
       if (currentScene <= 0) return;
       var target = currentScene - 1;
       if (target > 0) {
@@ -647,7 +682,8 @@
       refreshDevSelect();
     });
 
-    devNext.addEventListener("click", function () {
+    devNext.addEventListener("click", function (e) {
+      e.stopPropagation();
       var scenes = window.Scenes;
       if (!scenes || currentScene >= scenes.length - 1) return;
       var target = currentScene + 1;
@@ -674,9 +710,13 @@
     goToScene: goToScene,
 
     start: function () {
-      if (window.Scenes && window.Scenes.length > 0) {
-        goToScene(0);
-        if (isDev && window.EngineRefreshDevSelect) window.EngineRefreshDevSelect();
+      // Preload first scene images before starting
+      var scenes = window.Scenes;
+      if (scenes && scenes.length > 0) {
+        preloadSceneImages(scenes[0]).then(function () {
+          goToScene(0);
+          if (isDev && window.EngineRefreshDevSelect) window.EngineRefreshDevSelect();
+        });
       }
     },
 
@@ -699,7 +739,6 @@
         c.appendChild(img);
       }
       img.src = src;
-      c.style.visibility = "visible";
       c.style.opacity = "1";
     },
 
@@ -711,18 +750,12 @@
 
     showCell: function (row, col) {
       var c = getCell(row, col);
-      if (c) {
-        c.style.visibility = "visible";
-        c.style.opacity = "1";
-      }
+      if (c) c.style.opacity = "1";
     },
 
     hideCell: function (row, col) {
       var c = getCell(row, col);
-      if (c) {
-        c.style.visibility = "visible";
-        c.style.opacity = "0";
-      }
+      if (c) c.style.opacity = "0";
     },
 
     getZoom: function () {
