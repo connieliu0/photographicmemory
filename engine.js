@@ -76,23 +76,16 @@
         document.body.style.cursor = block.hoverCursor;
       }
       if (block.hoverTooltip != null && block.hoverTooltip !== "") {
-        tooltipActive = true;
-        tooltipEl.textContent = block.hoverTooltip;
-        tooltipEl.style.display = "block";
-        tooltipEl.style.opacity = "1";
-        tooltipEl.style.left = (e.clientX + 16) + "px";
-        tooltipEl.style.top = (e.clientY + 16) + "px";
+        scheduleOrShowTooltip(block.hoverTooltip, e.clientX, e.clientY);
       }
     });
     cell.addEventListener("mouseleave", function () {
       var scene = window.Scenes && window.Scenes[currentScene];
       if (!scene) return;
       document.body.style.cursor = scene.cursor || "default";
+      clearTooltipDelay();
       if (scene.tooltipVisible && scene.cursorTooltip != null && scene.cursorTooltip !== "") {
-        tooltipActive = true;
-        tooltipEl.textContent = scene.cursorTooltip;
-        tooltipEl.style.display = "block";
-        tooltipEl.style.opacity = "1";
+        scheduleOrShowTooltip(scene.cursorTooltip, lastMouseX, lastMouseY);
       } else {
         tooltipActive = false;
         tooltipEl.style.display = "none";
@@ -300,29 +293,100 @@
   // --- Cursor tooltip ---
 
   var tooltipActive = false;
+  var tooltipDelayTimer = null;
+  var lastMouseX = -1;
+  var lastMouseY = -1;
+  var tooltipDelayMs = 1000;
+
+  function clearTooltipDelay() {
+    if (tooltipDelayTimer) {
+      clearTimeout(tooltipDelayTimer);
+      tooltipDelayTimer = null;
+    }
+  }
+
+  function scheduleOrShowTooltip(text, x, y) {
+    var scene = window.Scenes && window.Scenes[currentScene];
+    if (!scene || !text) return;
+    clearTooltipDelay();
+    if (scene.tooltipDelay) {
+      tooltipDelayTimer = setTimeout(function () {
+        tooltipDelayTimer = null;
+        tooltipActive = true;
+        tooltipEl.textContent = text;
+        tooltipEl.style.display = "block";
+        tooltipEl.style.opacity = "1";
+        tooltipEl.style.left = (x + 16) + "px";
+        tooltipEl.style.top = (y + 16) + "px";
+      }, tooltipDelayMs);
+    } else {
+      tooltipActive = true;
+      tooltipEl.textContent = text;
+      tooltipEl.style.display = "block";
+      tooltipEl.style.opacity = "1";
+      tooltipEl.style.left = (x + 16) + "px";
+      tooltipEl.style.top = (y + 16) + "px";
+    }
+  }
   const tooltipEl = document.createElement("div");
   tooltipEl.id = "cursor-tooltip";
   Object.assign(tooltipEl.style, {
     position: "fixed",
     pointerEvents: "none",
-    color: "#fff",
+    color: "white",
     fontSize: "14px",
     fontFamily: "system-ui, sans-serif",
     background: "rgba(0,0,0,0.8)",
     padding: "6px 12px",
-    borderRadius: "6px",
+    borderRadius: "0px",
     zIndex: "1000",
-    whiteSpace: "nowrap",
+    maxWidth: "250px",
+    whiteSpace: "normal",
     display: "none",
     opacity: "0",
   });
   document.body.appendChild(tooltipEl);
 
   document.addEventListener("mousemove", function (e) {
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
     if (!tooltipActive) return;
     tooltipEl.style.left = (e.clientX + 16) + "px";
     tooltipEl.style.top = (e.clientY + 16) + "px";
   });
+
+  function applyHoverUnderCursor() {
+    if (lastMouseX < 0 && lastMouseY < 0) return;
+    if (breakoutOverlay.style.display === "block") return;
+    var scene = window.Scenes && window.Scenes[currentScene];
+    if (!scene) return;
+    var sceneCursor = scene.cursor || "default";
+    var el = document.elementFromPoint(lastMouseX, lastMouseY);
+    var cell = el && el.closest && el.closest(".cell");
+    if (cell && !cell.closest("#breakout-overlay")) {
+      var r = parseInt(cell.dataset.row, 10);
+      var c = parseInt(cell.dataset.col, 10);
+      var block = getBlockAt(r, c);
+      if (block && (block.hoverCursor || (block.hoverTooltip != null && block.hoverTooltip !== ""))) {
+        if (block.hoverCursor) {
+          document.body.style.cursor = block.hoverCursor;
+        }
+        if (block.hoverTooltip != null && block.hoverTooltip !== "") {
+          scheduleOrShowTooltip(block.hoverTooltip, lastMouseX, lastMouseY);
+        }
+        return;
+      }
+    }
+    document.body.style.cursor = sceneCursor;
+    if (scene.tooltipVisible && scene.cursorTooltip != null && scene.cursorTooltip !== "") {
+      scheduleOrShowTooltip(scene.cursorTooltip, lastMouseX, lastMouseY);
+    } else {
+      clearTooltipDelay();
+      tooltipActive = false;
+      tooltipEl.style.display = "none";
+      tooltipEl.style.opacity = "0";
+    }
+  }
 
   function getBottomTextEl() {
     return bottomTextActive === 0 ? bottomTextElA : bottomTextElB;
@@ -428,6 +492,7 @@
   // --- Scene state machine ---
 
   function teardownTransition() {
+    clearTooltipDelay();
     if (autoTimer) {
       clearTimeout(autoTimer);
       autoTimer = null;
@@ -475,6 +540,11 @@
     var doTransition = function () {
       isTransitioning = duration > 0;
 
+      // Restore cell borders (in case we hid them for slide transitions)
+      cells.forEach(function (cell) {
+        cell.style.border = "0px solid transparent";
+      });
+
       if (!nextScene.breakoutGrid) {
         teardownBreakout();
       }
@@ -484,6 +554,8 @@
           isTransitioning = false;
           if (nextScene.breakoutGrid) {
             showBreakoutGrid(nextScene);
+          } else {
+            applyHoverUnderCursor();
           }
         }
       }) : null;
@@ -532,7 +604,63 @@
           prevBlock.sepia !== nextBlock.sepia;
 
         if (contentChanged) {
-          if (duration > 0) {
+          var useSlide = nextScene.transitionStyle === "slide" && duration > 0 && prevBlock.image && nextBlock.image;
+          if (useSlide) {
+            var slideDuration = typeof nextScene.slideDuration === "number" ? nextScene.slideDuration : duration * 1.5;
+            var fit = (nextBlock.imageFit || (nextScene && nextScene.imageFit) || "cover");
+            var slideOverlay = document.createElement("div");
+            Object.assign(slideOverlay.style, {
+              position: "fixed",
+              top: "0",
+              left: "0",
+              width: "100vw",
+              height: "100vh",
+              overflow: "hidden",
+              zIndex: "50",
+              pointerEvents: "none",
+            });
+            var slideTrack = document.createElement("div");
+            Object.assign(slideTrack.style, {
+              display: "flex",
+              width: "200vw",
+              height: "100%",
+              willChange: "transform",
+            });
+            function makeSlidePanel(src) {
+              var panel = document.createElement("div");
+              Object.assign(panel.style, {
+                width: "100vw",
+                height: "100%",
+                flexShrink: 0,
+                overflow: "hidden",
+              });
+              var img = makeImageEl(src, nextBlock.x, nextBlock.y, fit);
+              img.style.width = "100%";
+              img.style.height = "100%";
+              img.style.objectFit = fit === "contain" ? "contain" : "cover";
+              panel.appendChild(img);
+              return panel;
+            }
+            slideTrack.appendChild(makeSlidePanel(prevBlock.image));
+            slideTrack.appendChild(makeSlidePanel(nextBlock.image));
+            slideOverlay.appendChild(slideTrack);
+            document.body.appendChild(slideOverlay);
+            var slideTween = gsap.fromTo(slideTrack,
+              { x: 0 },
+              {
+                x: "-100vw",
+                duration: slideDuration,
+                ease: TRANSITION_EASE,
+                onComplete: function () {
+                  setCellContent(c, nextBlock, nextScene);
+                  c.style.opacity = nextBlock.visible === false ? "0" : "1";
+                  c.style.border = "none";
+                  if (slideOverlay.parentNode) slideOverlay.parentNode.removeChild(slideOverlay);
+                },
+              }
+            );
+            tl.add(slideTween, 0);
+          } else if (duration > 0) {
             tl.to(c, {
               opacity: 0,
               duration: duration * 0.3,
@@ -660,11 +788,14 @@
           tooltipEl.style.opacity = "0";
         }
       }
+      applyHoverUnderCursor();
 
       // --- 7. Bottom text crossfade ---
       var prevText = prevScene && prevScene.bottomText ? prevScene.bottomText : "";
       var nextText = nextScene.bottomText ? nextScene.bottomText : "";
       var textUnchanged = prevText === nextText && nextText !== "";
+      var bottomTextDelay = !!(nextScene.bottomText && nextScene.delay);
+      var bottomTextDelayMs = 1000;
 
       if (duration > 0) {
         if (nextScene.bottomText) {
@@ -680,7 +811,17 @@
             inEl.textContent = nextText;
             inEl.style.opacity = "0";
             tl.to(outEl, { opacity: 0, duration: duration * 0.4, ease: TRANSITION_EASE }, 0);
-            tl.to(inEl, { opacity: 1, duration: duration * 0.4, ease: TRANSITION_EASE }, duration * 0.25);
+            if (bottomTextDelay) {
+              setTimeout(function () {
+                if (typeof gsap !== "undefined") {
+                  gsap.to(inEl, { opacity: 1, duration: 0.4, ease: TRANSITION_EASE });
+                } else {
+                  inEl.style.opacity = "1";
+                }
+              }, bottomTextDelayMs);
+            } else {
+              tl.to(inEl, { opacity: 1, duration: duration * 0.4, ease: TRANSITION_EASE }, duration * 0.25);
+            }
             bottomTextActive = 1 - bottomTextActive;
           }
         } else {
@@ -690,8 +831,19 @@
         if (nextScene.bottomText) {
           var el = getBottomTextEl();
           el.textContent = nextText;
-          el.style.opacity = "1";
           getBottomTextInactive().style.opacity = "0";
+          if (bottomTextDelay) {
+            el.style.opacity = "0";
+            setTimeout(function () {
+              if (typeof gsap !== "undefined") {
+                gsap.to(el, { opacity: 1, duration: 0.4, ease: TRANSITION_EASE });
+              } else {
+                el.style.opacity = "1";
+              }
+            }, bottomTextDelayMs);
+          } else {
+            el.style.opacity = "1";
+          }
         } else {
           getBottomTextEl().style.opacity = "0";
         }
@@ -699,9 +851,10 @@
 
       // --- 8. Click or auto advance ---
       if (nextScene.transition === "auto" && typeof nextScene.autoDuration === "number") {
+        var autoDelay = bottomTextDelay ? bottomTextDelayMs + nextScene.autoDuration : nextScene.autoDuration;
         autoTimer = setTimeout(function () {
           goToScene(currentScene + 1);
-        }, nextScene.autoDuration);
+        }, autoDelay);
       } else if (nextScene.transition === "click") {
         var clickableBlocks = (nextScene.blocks || []).filter(function (b) { return b.clickable === true; });
         if (clickableBlocks.length > 0) {

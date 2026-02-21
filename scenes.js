@@ -6,14 +6,26 @@ window.Scenes = [
     tooltipVisible: true,
     cursorTooltip: "In the recesses of my memory I relive certain scenes",
     blocks: [
-      { x: 1, y: 1, visible: true, image: "img1.jpeg", hoverCursor: "zoom-in", hoverTooltip: "An image appears in my mind", clickable: true },
+      { x: 1, y: 1, visible: true, image: "img0.png", hoverCursor: "zoom-in", hoverTooltip: "An image appears in my mind", clickable: true },
+    ],
+  },
+  {
+    id: "intro",
+    transition: "click",
+    cursor: "default",
+    tooltipVisible: false,
+    blocks: [
+      { x: 1, y: 1, visible: true, image: "img1.jpeg", hoverCursor: "nesw-resize", clickable: true },
     ],
     },
 
   {
     id: "image-appears",
     transition: "auto",
-    autoDuration: 800,
+    transitionStyle: "slide",
+    slideDuration: 1.2,
+    autoDuration: 1600,
+    delay: true,
     bottomText: "What do you remember from that moment?",
     cursor: "default",
     cursorTooltip: null,
@@ -28,7 +40,9 @@ window.Scenes = [
   {
     id: "image-changes",
     transition: "auto",
-    autoDuration: 800,
+    transitionStyle: "slide",
+    slideDuration: 1.2,
+    autoDuration: 1600,
     bottomText: "What do you remember from that moment?",
     cursor: "default",
     cursorTooltip: null,
@@ -42,46 +56,58 @@ window.Scenes = [
 
   {
     id: "image-appears",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2500,
+    transitionStyle: "slide",
+    slideDuration: 1.2,
     bottomText: "What do you remember from that moment?",
     cursor: "default",
-    cursorTooltip: null,
     tooltipVisible: false,
     zoom: 3,
     zoomCenter: { x: 1, y: 1 } ,
     blocks: [
-      { x: 1, y: 1, visible: true, image: "img3.jpeg", hoverCursor: "zoom-out", hoverTooltip: "I relive as if I can go back in time and change the outcome", clickable: true},
+      { x: 1, y: 1, visible: true, image: "img3.jpeg"},
     ],
   },
-
+  {
+    id: "image-appears",
+    transition: "click",
+    bottomText: "What do you remember from that moment?",
+    cursor: "zoom-out",
+    cursorTooltip: "I think I was looking through a window",
+    tooltipVisible: true,
+    zoom: 3,
+    zoomCenter: { x: 1, y: 1 } ,
+    blocks: [
+      { x: 1, y: 1, visible: true, image: "img3.jpeg"},
+    ],
+  },
   {
     id: "image-changes",
-    transition: "auto",
-    autoDuration: 2000,
+    transition: "click",
     bottomText: "",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
     bottomText:"Do you remember what time of day it was?",
     blocks: [
-      { x: 0, y: 1, visible: true, image: "img1.jpeg"},
-      { x: 1, y: 1, visible: true, image: "img2.jpeg"},
-      { x: 2, y: 1, visible: true, image: "img3.jpeg"},
+      { x: 0, y: 1, visible: true, image: "img1.jpeg", hoverCursor: "help", hoverTooltip: "The sun was setting", clickable: false},
+      { x: 1, y: 1, visible: true, image: "img2.jpeg", hoverCursor: "help", hoverTooltip: "There was a waning light", clickable: false},
+      { x: 2, y: 1, visible: true, image: "img3.jpeg", hoverCursor: "nesw-resize", hoverTooltip: "Everything was bathed in gold", clickable: true},
     ],
   },
   {
     id: "image-changes",
-    transition: "auto",
-    autoDuration: 2000,
+    transition: "click",
     bottomText: "",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
     bottomText:"Do you remember what time of day it was?",
     blocks: [
-      { x: 0, y: 1, visible: true, image: "img4.JPG"},
-      { x: 1, y: 1, visible: true, image: "img5.jpeg"},
-      { x: 2, y: 1, visible: true, image: "img6.JPG"},
+      { x: 0, y: 1, visible: true, image: "img4.JPG", hoverCursor: "ns-resize", hoverTooltip: "The trees were golden too", clickable: true},
+      { x: 1, y: 1, visible: true, image: "img5.jpeg", hoverCursor: "ew-resize", hoverTooltip: "The trees were golden too", clickable: true},
+      { x: 2, y: 1, visible: true, image: "img6.JPG", hoverCursor: "nesw-resize", hoverTooltip: "The trees were golden too", clickable: true},
     ],
   },
 
@@ -114,12 +140,14 @@ window.Scenes = [
       { x: 0, y: 1, visible: true, image: "next/img3.jpeg" },
       { x: 1, y: 2, visible: true, image: "next/img1.jpeg" },
       {  x: 2, y: 1, visible: true, image: "img6.JPG"},
+      {x: 1, y: 1, visible: false, image: "next/img4.jpeg", hoverCursor: "help", hoverTooltip: "The outcome I want to change", clickable: true},
     ],
   },
 
   {
     id: "golden-hour",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
     bottomText: "They say that once you remember fully you can travel back in time",
     cursor: "default",
     cursorTooltip: null,
@@ -131,7 +159,8 @@ window.Scenes = [
 
   {
     id: "spotlight-you",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
     bottomText: "Photos are supposed to help with that",
     cursor: "default",
     cursorTooltip: null,
@@ -147,7 +176,9 @@ window.Scenes = [
 
   {
     id: "spotlight-me",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
+    delay: true,
     bottomText: "But not completely",
     cursor: "default",
     cursorTooltip: null,
@@ -202,9 +233,48 @@ window.Scenes = [
 
   {
     id: "remember-fully",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
     cursor: "wait",
-    cursorTooltip: "the mind misremembers, distorts, only remembers certain parts strongly",
+    cursorTooltip: "the mind misremembers,",
+    tooltipVisible: true,
+    blocks: [
+      { x: 1, y: 0, visible: true, image: "next/img2.jpeg" },
+      { x: 1, y: 2, visible: true, image: "next/img1.jpeg" },
+      { x: 1, y: 1, visible: false, image: "next/img4.jpeg" },
+      { x: 0, y: 1, visible: false, image: "next/img3.jpeg" },
+      { x:0, y: 0, visible: true, image: "next/bw5.jpeg" },
+      { x:0, y: 2, visible: false, image: "next/img7.jpeg" },
+      { x:2, y: 0, visible: true, image: "next/img6.jpeg" },
+      { x:2, y: 2, visible: true, image: "next/bw8.jpeg" },
+      { x:2, y: 1, visible: true, image: "next/bw9.jpeg"},
+        ],
+  },
+  {
+    id: "remember-fully",
+    transition: "auto",
+    autoDuration: 2000,
+    cursor: "wait",
+    cursorTooltip: "distorts, remembers through",
+    tooltipVisible: true,
+    blocks: [
+      { x: 1, y: 0, visible: true, image: "next/img2.jpeg" },
+      { x: 1, y: 2, visible: true, image: "next/img1.jpeg" },
+      { x: 1, y: 1, visible: false, image: "next/img4.jpeg" },
+      { x: 0, y: 1, visible: false, image: "next/img3.jpeg" },
+      { x:0, y: 0, visible: true, image: "next/bw5.jpeg" },
+      { x:0, y: 2, visible: false, image: "next/img7.jpeg" },
+      { x:2, y: 0, visible: true, image: "next/img6.jpeg" },
+      { x:2, y: 2, visible: true, image: "next/bw8.jpeg" },
+      { x:2, y: 1, visible: true, image: "next/bw9.jpeg"},
+        ],
+  },
+  {
+    id: "remember-fully",
+    transition: "auto",
+    autoDuration: 2000,
+    cursor: "wait",
+    cursorTooltip: "smudged lens",
     tooltipVisible: true,
     blocks: [
       { x: 1, y: 0, visible: true, image: "next/img2.jpeg" },
@@ -221,7 +291,8 @@ window.Scenes = [
 
   {
     id: "remember-fully",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 4000,
     cursor: "wait",
     bottomText: "You're still there aren't you?",
     tooltipVisible: false,
@@ -240,7 +311,8 @@ window.Scenes = [
 
   {
     id: "remember-fully",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
     cursor: "wait",
     bottomText: "Shouldn’t you have learned by now?",
     tooltipVisible: false,
@@ -255,7 +327,8 @@ window.Scenes = [
 
   {
     id: "gaps-hide-between",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
     bottomText: "You're always looking back for an answer to your questions",
     cursor: "default",
     cursorTooltip: null,
@@ -267,7 +340,8 @@ window.Scenes = [
 
   {
     id: "change",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
     cursor: "wait",
     tooltipVisible: true,
     cursorTooltip: "But everything keeps changing",
@@ -287,7 +361,8 @@ window.Scenes = [
   
   {
     id: "change",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
     cursor: "wait",
     tooltipVisible: true,
     cursorTooltip: "But everything keeps changing",
@@ -306,7 +381,8 @@ window.Scenes = [
 
   {
     id: "change",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
     cursor: "wait",
     tooltipVisible: true,
     cursorTooltip: "But everything keeps changing",
@@ -325,8 +401,9 @@ window.Scenes = [
 
   {
     id: "nothing chnages",
-    transition: "click",
-    bottomText: "Yet nothing changes",
+    transition: "auto",
+    autoDuration: 2000,
+    bottomText: "Look closer",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
@@ -340,8 +417,9 @@ window.Scenes = [
 
   {
     id: "nothing chnages",
-    transition: "click",
-    bottomText: "Yet nothing changes",
+    transition: "auto",
+    autoDuration: 2000,
+    bottomText: "Look closer",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
@@ -356,8 +434,9 @@ window.Scenes = [
 
   {
     id: "nothing chnages",
-    transition: "click",
-    bottomText: "Yet nothing changes",
+    transition: "auto",
+    autoDuration: 2000,
+    bottomText: "Nothing changes",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
@@ -369,8 +448,9 @@ window.Scenes = [
 
   {
     id: "nothing chnages",
-    transition: "click",
-    bottomText: "Yet nothing changes",
+    transition: "auto",
+    autoDuration: 2000,
+    bottomText: "Nothing changes",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
@@ -403,7 +483,7 @@ window.Scenes = [
     id: "image-appears",
     transition: "auto",
     autoDuration: 800,
-    bottomText: "Yeah I get it ",
+    bottomText: "Yeah... I do",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
