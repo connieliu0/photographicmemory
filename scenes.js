@@ -84,18 +84,33 @@ window.Scenes = [
   },
   {
     id: "image-changes",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 400,
     bottomText: "",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
-    bottomText:"Do you remember what time of day it was?",
     blocks: [
-      { x: 0, y: 1, visible: true, image: "img1.jpeg", hoverCursor: "help", hoverTooltip: "The sun was setting", clickable: false},
-      { x: 1, y: 1, visible: true, image: "img2.jpeg", hoverCursor: "help", hoverTooltip: "There was a waning light", clickable: false},
-      { x: 2, y: 1, visible: true, image: "img3.jpeg", hoverCursor: "nesw-resize", hoverTooltip: "Everything was bathed in gold", clickable: true},
+
     ],
   },
+  {
+    id: "image-changes",
+    transition: "auto", 
+    autoDuration: 400,
+    bottomText: "",
+    cursor: "default",
+    cursorTooltip: null,
+    tooltipVisible: false,
+    delay: true,
+    bottomText:"Do you remember what time of day it was?",
+    blocks: [
+      { x: 0, y: 1, visible: true, image: "img1.jpeg"},
+      { x: 1, y: 1, visible: true, image: "img2.jpeg"}, 
+      { x: 2, y: 1, visible: true, image: "img3.jpeg"},
+    ],
+  },
+  
   {
     id: "image-changes",
     transition: "click",
@@ -103,6 +118,23 @@ window.Scenes = [
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
+    delay: true,
+    bottomText:"Do you remember what time of day it was?",
+    blocks: [
+      { x: 0, y: 1, visible: true, image: "img1.jpeg", hoverCursor: "help", tooltipDelay: true, hoverTooltip: "The sun was setting", clickable: false},
+      { x: 1, y: 1, visible: true, image: "img2.jpeg", hoverCursor: "help", tooltipDelay: true,   hoverTooltip: "There was a waning light", clickable: false},
+      { x: 2, y: 1, visible: true, image: "img3.jpeg", hoverCursor: "nesw-resize", tooltipDelay: true, hoverTooltip: "Everything was bathed in gold", clickable: true},
+    ],
+  },
+  
+  {
+    id: "image-changes",
+    transition: "click",
+    bottomText: "",
+    cursor: "default",
+    cursorTooltip: null,
+    tooltipVisible: false,
+    delay: true,
     bottomText:"Do you remember what time of day it was?",
     blocks: [
       { x: 0, y: 1, visible: true, image: "img4.JPG", hoverCursor: "ns-resize", hoverTooltip: "The trees were golden too", clickable: true},

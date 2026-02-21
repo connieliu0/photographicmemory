@@ -737,27 +737,38 @@
 
       // --- 5. Zoom ---
       var zoom = typeof nextScene.zoom === "number" ? nextScene.zoom : 1;
+      var prevZoom = prevScene && typeof prevScene.zoom === "number" ? prevScene.zoom : 1;
+      var zoomingOut = prevZoom > 1 && zoom <= 1;
       var zc = nextScene.zoomCenter;
       var ox = (zc && typeof zc.x === "number") ? ((zc.x + 0.5) / 3 * 100) : 50;
       var oy = (zc && typeof zc.y === "number") ? ((zc.y + 0.5) / 3 * 100) : 50;
-      grid.style.transformOrigin = ox + "% " + oy + "%";
-      grid.style.transform = "scale(" + zoom + ")";
-      if (zoom > 1) {
-        var cellW = "calc(100vw / " + zoom + ")";
-        var cellH = "calc(100vh / " + zoom + ")";
-        grid.style.gridTemplateColumns = "repeat(" + GRID_SIZE + ", " + cellW + ")";
-        grid.style.gridTemplateRows = "repeat(" + GRID_SIZE + ", " + cellH + ")";
-        cells.forEach(function (cell) {
-          cell.style.width = cellW;
-          cell.style.height = cellH;
-        });
+
+      function applyZoom() {
+        grid.style.transformOrigin = ox + "% " + oy + "%";
+        grid.style.transform = "scale(" + zoom + ")";
+        if (zoom > 1) {
+          var cellW = "calc(100vw / " + zoom + ")";
+          var cellH = "calc(100vh / " + zoom + ")";
+          grid.style.gridTemplateColumns = "repeat(" + GRID_SIZE + ", " + cellW + ")";
+          grid.style.gridTemplateRows = "repeat(" + GRID_SIZE + ", " + cellH + ")";
+          cells.forEach(function (cell) {
+            cell.style.width = cellW;
+            cell.style.height = cellH;
+          });
+        } else {
+          grid.style.gridTemplateColumns = "repeat(" + GRID_SIZE + ", " + CELL_SIZE + ")";
+          grid.style.gridTemplateRows = "repeat(" + GRID_SIZE + ", " + CELL_SIZE + ")";
+          cells.forEach(function (cell) {
+            cell.style.width = CELL_SIZE;
+            cell.style.height = CELL_SIZE;
+          });
+        }
+      }
+
+      if (zoomingOut && duration > 0) {
+        tl.add(function () { applyZoom(); }, duration * 0.5);
       } else {
-        grid.style.gridTemplateColumns = "repeat(" + GRID_SIZE + ", " + CELL_SIZE + ")";
-        grid.style.gridTemplateRows = "repeat(" + GRID_SIZE + ", " + CELL_SIZE + ")";
-        cells.forEach(function (cell) {
-          cell.style.width = CELL_SIZE;
-          cell.style.height = CELL_SIZE;
-        });
+        applyZoom();
       }
       }
 
