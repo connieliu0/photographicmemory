@@ -121,9 +121,9 @@ window.Scenes = [
     delay: true,
     bottomText:"Do you remember what time of day it was?",
     blocks: [
-      { x: 0, y: 1, visible: true, image: "img1.jpeg", hoverCursor: "help", tooltipDelay: true, hoverTooltip: "The sun was setting", clickable: false},
-      { x: 1, y: 1, visible: true, image: "img2.jpeg", hoverCursor: "help", tooltipDelay: true,   hoverTooltip: "There was a waning light", clickable: false},
-      { x: 2, y: 1, visible: true, image: "img3.jpeg", hoverCursor: "nesw-resize", tooltipDelay: true, hoverTooltip: "Everything was bathed in gold", clickable: true},
+      { x: 0, y: 1, visible: true, image: "img1.jpeg", hoverCursor: "help", hoverTooltip: "The sun was setting", clickable: false},
+      { x: 1, y: 1, visible: true, image: "img2.jpeg", hoverCursor: "help",  hoverTooltip: "There was a waning light", clickable: false},
+      { x: 2, y: 1, visible: true, image: "img3.jpeg", hoverCursor: "nesw-resize", hoverTooltip: "Everything was bathed in gold", clickable: true},
     ],
   },
   
@@ -513,10 +513,9 @@ window.Scenes = [
 
   {
     id: "image-appears",
-    transition: "auto",
-    autoDuration: 800,
+    transition: "click",
     bottomText: "Yeah... I do",
-    cursor: "default",
+    cursor: "help",
     cursorTooltip: null,
     tooltipVisible: false,
     zoom: 3,
@@ -525,6 +524,20 @@ window.Scenes = [
       { x: 1, y: 1, visible: true, image: "nothing/output.gif"},
     ],
   },
+  {
+    id: "image-appears",
+    transition: "auto",
+    autoDuration: 800,
+    bottomText: "Photos taken from my camera roll between 2020 and 2026",
+    cursor: "default",
+    cursorTooltip: null,
+    tooltipVisible: false,
+    zoom: 3,
+    zoomCenter: { x: 1, y: 1 } ,
+    blocks: [
+      { x: 1, y: 1, visible: true, image: "nothing/output.gif"},
+    ],
+  }
 ];
 
 Engine.start();
