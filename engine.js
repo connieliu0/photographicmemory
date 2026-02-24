@@ -76,7 +76,7 @@
         document.body.style.cursor = block.hoverCursor;
       }
       if (block.hoverTooltip != null && block.hoverTooltip !== "") {
-        scheduleOrShowTooltip(block.hoverTooltip, e.clientX, e.clientY);
+        scheduleOrShowTooltip(block.hoverTooltip, e.clientX, e.clientY, scene.tooltipDelay || block.delayTooltip);
       }
     });
     cell.addEventListener("mouseleave", function () {
@@ -85,7 +85,7 @@
       document.body.style.cursor = scene.cursor || "default";
       clearTooltipDelay();
       if (scene.tooltipVisible && scene.cursorTooltip != null && scene.cursorTooltip !== "") {
-        scheduleOrShowTooltip(scene.cursorTooltip, lastMouseX, lastMouseY);
+        scheduleOrShowTooltip(scene.cursorTooltip, lastMouseX, lastMouseY, scene.tooltipDelay);
       } else {
         tooltipActive = false;
         tooltipEl.style.display = "none";
@@ -305,11 +305,12 @@
     }
   }
 
-  function scheduleOrShowTooltip(text, x, y) {
+  function scheduleOrShowTooltip(text, x, y, useDelay) {
     var scene = window.Scenes && window.Scenes[currentScene];
     if (!scene || !text) return;
     clearTooltipDelay();
-    if (scene.tooltipDelay) {
+    var shouldDelay = useDelay === undefined ? !!scene.tooltipDelay : !!useDelay;
+    if (shouldDelay) {
       tooltipDelayTimer = setTimeout(function () {
         tooltipDelayTimer = null;
         tooltipActive = true;
@@ -372,7 +373,7 @@
           document.body.style.cursor = block.hoverCursor;
         }
         if (block.hoverTooltip != null && block.hoverTooltip !== "") {
-          scheduleOrShowTooltip(block.hoverTooltip, lastMouseX, lastMouseY);
+          scheduleOrShowTooltip(block.hoverTooltip, lastMouseX, lastMouseY, scene.tooltipDelay || block.delayTooltip);
         }
         return;
       }
@@ -555,7 +556,7 @@
           if (nextScene.breakoutGrid) {
             showBreakoutGrid(nextScene);
           } else {
-            applyHoverUnderCursor();
+            requestAnimationFrame(function () { applyHoverUnderCursor(); });
           }
         }
       }) : null;

@@ -123,7 +123,7 @@ window.Scenes = [
     blocks: [
       { x: 0, y: 1, visible: true, image: "img1.jpeg", hoverCursor: "help", hoverTooltip: "The sun was setting", clickable: false},
       { x: 1, y: 1, visible: true, image: "img2.jpeg", hoverCursor: "help",  hoverTooltip: "There was a waning light", clickable: false},
-      { x: 2, y: 1, visible: true, image: "img3.jpeg", hoverCursor: "nesw-resize", hoverTooltip: "Everything was bathed in gold", clickable: true},
+      { x: 2, y: 1, visible: true, image: "img3.jpeg", hoverCursor: "zoom-in", hoverTooltip: "Everything was bathed in gold", clickable: true},
     ],
   },
   
@@ -137,9 +137,9 @@ window.Scenes = [
     delay: true,
     bottomText:"Do you remember what time of day it was?",
     blocks: [
-      { x: 0, y: 1, visible: true, image: "img4.JPG", hoverCursor: "ns-resize", hoverTooltip: "The trees were golden too", clickable: true},
-      { x: 1, y: 1, visible: true, image: "img5.jpeg", hoverCursor: "ew-resize", hoverTooltip: "The trees were golden too", clickable: true},
-      { x: 2, y: 1, visible: true, image: "img6.JPG", hoverCursor: "nesw-resize", hoverTooltip: "The trees were golden too", clickable: true},
+      { x: 0, y: 1, visible: true, image: "img4.JPG", hoverCursor: "zoom-in", hoverTooltip: "The trees were golden too", clickable: true},
+      { x: 1, y: 1, visible: true, image: "img5.jpeg", hoverCursor: "zoom-in", hoverTooltip: "The trees were golden too", clickable: true},
+      { x: 2, y: 1, visible: true, image: "img6.JPG", hoverCursor: "zoom-in", hoverTooltip: "The trees were golden too", clickable: true},
     ],
   },
 
@@ -172,7 +172,7 @@ window.Scenes = [
       { x: 0, y: 1, visible: true, image: "next/img3.jpeg" },
       { x: 1, y: 2, visible: true, image: "next/img1.jpeg" },
       {  x: 2, y: 1, visible: true, image: "img6.JPG"},
-      {x: 1, y: 1, visible: false, image: "next/img4.jpeg", hoverCursor: "help", hoverTooltip: "The outcome I want to change", clickable: true},
+      {x: 1, y: 1, visible: false, image: "next/img4.jpeg", hoverCursor: "grabbing", hoverTooltip: "The outcome I want to change", clickable: true},
     ],
   },
 
@@ -247,9 +247,8 @@ window.Scenes = [
   {
     id: "pres",
     transition: "click",
-    cursor: "not-allowed",
-    cursorTooltip: "Or there isn't a connection to the present anymore",
-    tooltipVisible: true,
+    cursor: "default",
+    tooltipVisible: false,
     blocks: [
       { x: 1, y: 0, visible: true, image: "next/img2.jpeg" },
       { x: 1, y: 2, visible: true, image: "next/img1.jpeg" },
@@ -259,7 +258,7 @@ window.Scenes = [
       { x:0, y: 2, visible: true, image: "next/img7.jpeg" },
       { x:2, y: 0, visible: true, image: "next/img6.jpeg" },
       { x:2, y: 2, visible: true, image: "next/img8.jpeg" },
-      { x:2, y: 1, visible: false, image: "next/img9.jpeg"},
+      { x:2, y: 1, visible: false, image: "next/img9.jpeg", hoverCursor: "not-allowed", hoverTooltip: "Or there isn't a connection to the present anymore", clickable: true},
         ],
   },
 
