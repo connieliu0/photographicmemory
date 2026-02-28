@@ -502,6 +502,7 @@ window.Scenes = [
     cursor: "help",
     cursorTooltip: null,
     tooltipVisible: false,
+    persistAudio: true,
     zoom: 3,
     zoomCenter: { x: 1, y: 1 } ,
     blocks: [
@@ -516,6 +517,7 @@ window.Scenes = [
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
+    persistAudio: true,
     zoom: 3,
     zoomCenter: { x: 1, y: 1 } ,
     blocks: [

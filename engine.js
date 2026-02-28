@@ -228,8 +228,11 @@
           var el = e.target.closest("[data-clickable=true]");
           if (!el || isTransitioning) return;
           e.stopPropagation();
-          teardownBreakout();
-          goToScene(currentScene + 1);
+          var nextIdx = currentScene + 1;
+          var nextSc = window.Scenes && window.Scenes[nextIdx];
+          var keep = nextSc && nextSc.persistAudio;
+          teardownBreakout(keep);
+          goToScene(nextIdx);
         };
         breakoutOverlay.addEventListener("click", breakoutClickHandler);
       }
@@ -310,8 +313,8 @@
     }
   }
 
-  function teardownBreakout() {
-    if (breakoutAudio) {
+  function teardownBreakout(keepAudio) {
+    if (!keepAudio && breakoutAudio) {
       breakoutAudio.pause();
       breakoutAudio = null;
     }
@@ -645,6 +648,11 @@
     var nextScene = scenes[n];
     var nextBlocks = Array.isArray(nextScene.blocks) ? nextScene.blocks : [];
 
+    if (!nextScene.persistAudio && breakoutAudio) {
+      breakoutAudio.pause();
+      breakoutAudio = null;
+    }
+
     currentScene = n;
 
     var prevMap = blocksMap(prevBlocks);
@@ -666,7 +674,7 @@
       });
 
       if (!nextScene.breakoutGrid) {
-        teardownBreakout();
+        teardownBreakout(nextScene.persistAudio);
       }
 
       var tl = duration > 0 ? gsap.timeline({
