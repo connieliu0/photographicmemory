@@ -28,6 +28,27 @@
   });
   document.body.appendChild(gridClipWrapper);
 
+  // Gray grid pattern applied directly as background on gridClipWrapper (no extra DOM)
+  var grayGridCellExpr = "min(100vw / 3, 100vh / 3)";
+  var grayGridBg = "#FAFAFA";
+  var grayGridImage =
+    "linear-gradient(to right, white 0px, white 3px, transparent 3px)," +
+    "linear-gradient(to bottom, white 0px, white 3px, transparent 3px)";
+  var grayGridSize = "calc(" + grayGridCellExpr + ") calc(" + grayGridCellExpr + ")";
+
+  function showGrayGrid() {
+    gridClipWrapper.style.backgroundColor = grayGridBg;
+    gridClipWrapper.style.backgroundImage = grayGridImage;
+    gridClipWrapper.style.backgroundSize = grayGridSize;
+    gridClipWrapper.style.backgroundPosition = "center center";
+  }
+  function hideGrayGrid() {
+    gridClipWrapper.style.backgroundColor = "";
+    gridClipWrapper.style.backgroundImage = "";
+    gridClipWrapper.style.backgroundSize = "";
+    gridClipWrapper.style.backgroundPosition = "";
+  }
+
   const container = document.createElement("div");
   container.id = "grid-container";
   Object.assign(container.style, {
@@ -73,7 +94,7 @@
       if (!block) return;
       var scene = window.Scenes && window.Scenes[currentScene];
       if (block.hoverCursor) {
-        document.body.style.cursor = block.hoverCursor;
+        gridClipWrapper.style.cursor = block.hoverCursor;
       }
       if (block.hoverTooltip != null && block.hoverTooltip !== "") {
         scheduleOrShowTooltip(block.hoverTooltip, e.clientX, e.clientY, scene.tooltipDelay || block.delayTooltip);
@@ -82,7 +103,7 @@
     cell.addEventListener("mouseleave", function () {
       var scene = window.Scenes && window.Scenes[currentScene];
       if (!scene) return;
-      document.body.style.cursor = scene.cursor || "default";
+      gridClipWrapper.style.cursor = scene.cursor || "default";
       clearTooltipDelay();
       if (scene.tooltipVisible && scene.cursorTooltip != null && scene.cursorTooltip !== "") {
         scheduleOrShowTooltip(scene.cursorTooltip, lastMouseX, lastMouseY, scene.tooltipDelay);
@@ -125,8 +146,96 @@
   breakoutOverlay.appendChild(breakoutGridEl);
 
   var breakoutClickHandler = null;
+  var breakoutAudio = null;
+  var breakoutScrollHandler = null;
+  var breakoutHovering = false;
 
   function showBreakoutGrid(scene) {
+    // Full-screen background image mode with horizontal scroll
+    if (scene.breakoutBackground) {
+      breakoutOverlay.style.overflowX = "auto";
+      breakoutOverlay.style.overflowY = "hidden";
+      breakoutGridEl.style.display = "inline-block";
+      breakoutGridEl.style.width = "auto";
+      breakoutGridEl.style.height = "100vh";
+      breakoutGridEl.style.position = "relative";
+      breakoutGridEl.innerHTML = "";
+
+      var img = document.createElement("img");
+      Object.assign(img.style, {
+        height: "100vh",
+        width: "auto",
+        display: "block",
+      });
+      img.src = scene.breakoutBackground;
+      breakoutGridEl.appendChild(img);
+
+      if (scene.breakoutEndImage) {
+        var endImg = document.createElement("img");
+        Object.assign(endImg.style, {
+          position: "absolute",
+          right: "400px",
+          top: "500px",
+          transform: "translateY(-50%)",
+          height: "50%",
+          width: "auto",
+          height: "300px",
+          cursor: scene.cursor || "zoom-in",
+        });
+        endImg.src = scene.breakoutEndImage;
+        endImg.dataset.clickable = "true";
+        breakoutGridEl.appendChild(endImg);
+      }
+
+      gridClipWrapper.style.visibility = "hidden";
+      breakoutOverlay.style.display = "block";
+
+      if (scene.breakoutAudio) {
+        breakoutAudio = new Audio(scene.breakoutAudio);
+        breakoutAudio.loop = true;
+        breakoutAudio.volume = 0;
+        breakoutAudio.play().catch(function (err) { console.warn("audio play failed:", err); });
+        breakoutHovering = false;
+
+        breakoutScrollHandler = function () {
+          if (breakoutHovering) return;
+          var scrollLeft = breakoutOverlay.scrollLeft;
+          var maxScroll = breakoutOverlay.scrollWidth - breakoutOverlay.clientWidth;
+          var progress = maxScroll > 0 ? scrollLeft / maxScroll : 0;
+          if (breakoutAudio) {
+            breakoutAudio.volume = Math.min(0.3, Math.max(0, progress * 0.3));
+          }
+        };
+        breakoutOverlay.addEventListener("scroll", breakoutScrollHandler);
+
+        if (scene.breakoutEndImage) {
+          var endEl = breakoutGridEl.querySelector("[data-clickable=true]");
+          if (endEl) {
+            endEl.addEventListener("mouseenter", function () {
+              breakoutHovering = true;
+              if (breakoutAudio) breakoutAudio.volume = 1;
+            });
+            endEl.addEventListener("mouseleave", function () {
+              breakoutHovering = false;
+              if (breakoutScrollHandler) breakoutScrollHandler();
+            });
+          }
+        }
+      }
+
+      if (breakoutClickHandler === null) {
+        breakoutClickHandler = function (e) {
+          var el = e.target.closest("[data-clickable=true]");
+          if (!el || isTransitioning) return;
+          e.stopPropagation();
+          teardownBreakout();
+          goToScene(currentScene + 1);
+        };
+        breakoutOverlay.addEventListener("click", breakoutClickHandler);
+      }
+      return;
+    }
+
     var images = scene.breakoutImages || [];
     var centerImage = scene.breakoutCenterImage || "";
     if (images.length === 0 && !centerImage) return;
@@ -202,18 +311,27 @@
   }
 
   function teardownBreakout() {
+    if (breakoutAudio) {
+      breakoutAudio.pause();
+      breakoutAudio = null;
+    }
+    breakoutHovering = false;
+    if (breakoutScrollHandler) {
+      breakoutOverlay.removeEventListener("scroll", breakoutScrollHandler);
+      breakoutScrollHandler = null;
+    }
     breakoutOverlay.style.display = "none";
+    breakoutOverlay.style.overflowX = "hidden";
+    breakoutOverlay.style.overflowY = "hidden";
+    breakoutGridEl.style.display = "grid";
+    breakoutGridEl.style.position = "static";
+    breakoutGridEl.style.width = "100vw";
+    breakoutGridEl.style.height = "100vh";
     breakoutGridEl.innerHTML = "";
     gridClipWrapper.style.visibility = "";
     if (breakoutClickHandler) {
       breakoutOverlay.removeEventListener("click", breakoutClickHandler);
       breakoutClickHandler = null;
-    }
-  }
-
-  function hideBreakoutIfActive() {
-    if (breakoutOverlay.style.display === "block") {
-      teardownBreakout();
     }
   }
 
@@ -243,6 +361,12 @@
       scene.blocks
         .filter(function (b) { return b.image && b.visible !== false; })
         .forEach(function (b) { promises.push(preloadImage(b.image)); });
+    }
+    if (scene.breakoutGrid && scene.breakoutBackground) {
+      promises.push(preloadImage(scene.breakoutBackground));
+    }
+    if (scene.breakoutGrid && scene.breakoutEndImage) {
+      promises.push(preloadImage(scene.breakoutEndImage));
     }
     if (scene.breakoutGrid && Array.isArray(scene.breakoutImages)) {
       scene.breakoutImages.forEach(function (src) { promises.push(preloadImage(src)); });
@@ -310,23 +434,18 @@
     if (!scene || !text) return;
     clearTooltipDelay();
     var shouldDelay = useDelay === undefined ? !!scene.tooltipDelay : !!useDelay;
-    if (shouldDelay) {
-      tooltipDelayTimer = setTimeout(function () {
-        tooltipDelayTimer = null;
-        tooltipActive = true;
-        tooltipEl.textContent = text;
-        tooltipEl.style.display = "block";
-        tooltipEl.style.opacity = "1";
-        tooltipEl.style.left = (x + 16) + "px";
-        tooltipEl.style.top = (y + 16) + "px";
-      }, tooltipDelayMs);
-    } else {
+    function reveal() {
       tooltipActive = true;
       tooltipEl.textContent = text;
       tooltipEl.style.display = "block";
       tooltipEl.style.opacity = "1";
       tooltipEl.style.left = (x + 16) + "px";
       tooltipEl.style.top = (y + 16) + "px";
+    }
+    if (shouldDelay) {
+      tooltipDelayTimer = setTimeout(function () { tooltipDelayTimer = null; reveal(); }, tooltipDelayMs);
+    } else {
+      reveal();
     }
   }
   const tooltipEl = document.createElement("div");
@@ -370,7 +489,7 @@
       var block = getBlockAt(r, c);
       if (block && (block.hoverCursor || (block.hoverTooltip != null && block.hoverTooltip !== ""))) {
         if (block.hoverCursor) {
-          document.body.style.cursor = block.hoverCursor;
+          gridClipWrapper.style.cursor = block.hoverCursor;
         }
         if (block.hoverTooltip != null && block.hoverTooltip !== "") {
           scheduleOrShowTooltip(block.hoverTooltip, lastMouseX, lastMouseY, scene.tooltipDelay || block.delayTooltip);
@@ -378,7 +497,7 @@
         return;
       }
     }
-    document.body.style.cursor = sceneCursor;
+    gridClipWrapper.style.cursor = sceneCursor;
     if (scene.tooltipVisible && scene.cursorTooltip != null && scene.cursorTooltip !== "") {
       scheduleOrShowTooltip(scene.cursorTooltip, lastMouseX, lastMouseY);
     } else {
@@ -744,6 +863,8 @@
       var ox = (zc && typeof zc.x === "number") ? ((zc.x + 0.5) / 3 * 100) : 50;
       var oy = (zc && typeof zc.y === "number") ? ((zc.y + 0.5) / 3 * 100) : 50;
 
+      if (!nextScene.breakoutGrid && zoom <= 1) { showGrayGrid(); } else { hideGrayGrid(); }
+
       function applyZoom() {
         grid.style.transformOrigin = ox + "% " + oy + "%";
         grid.style.transform = "scale(" + zoom + ")";
@@ -774,7 +895,7 @@
       }
 
       // --- 6. Cursor and tooltip ---
-      document.body.style.cursor = nextScene.cursor || "default";
+      gridClipWrapper.style.cursor = nextScene.cursor || "default";
       if (nextScene.tooltipVisible && nextScene.cursorTooltip != null && nextScene.cursorTooltip !== "") {
         tooltipActive = true;
         tooltipEl.textContent = nextScene.cursorTooltip;
@@ -942,7 +1063,7 @@
       padding: "4px 8px",
       background: "#333",
       color: "#fff",
-      border: "1px solid #555",
+      border: "3px solid #555",
       borderRadius: "4px",
     });
 

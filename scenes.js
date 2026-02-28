@@ -98,44 +98,35 @@ window.Scenes = [
     id: "image-changes",
     transition: "auto", 
     autoDuration: 400,
-    bottomText: "",
     cursor: "default",
-    cursorTooltip: null,
-    tooltipVisible: false,
     delay: true,
-    bottomText:"Do you remember what time of day it was?",
+    bottomText: "Do you remember what time of day it was?",
     blocks: [
       { x: 0, y: 1, visible: true, image: "img1.jpeg"},
       { x: 1, y: 1, visible: true, image: "img2.jpeg"}, 
       { x: 2, y: 1, visible: true, image: "img3.jpeg"},
     ],
   },
-  
+
   {
     id: "image-changes",
     transition: "click",
-    bottomText: "",
     cursor: "default",
-    cursorTooltip: null,
-    tooltipVisible: false,
     delay: true,
-    bottomText:"Do you remember what time of day it was?",
+    bottomText: "Do you remember what time of day it was?",
     blocks: [
       { x: 0, y: 1, visible: true, image: "img1.jpeg", hoverCursor: "help", hoverTooltip: "The sun was setting", clickable: false},
-      { x: 1, y: 1, visible: true, image: "img2.jpeg", hoverCursor: "help",  hoverTooltip: "There was a waning light", clickable: false},
+      { x: 1, y: 1, visible: true, image: "img2.jpeg", hoverCursor: "help", hoverTooltip: "There was a waning light", clickable: false},
       { x: 2, y: 1, visible: true, image: "img3.jpeg", hoverCursor: "zoom-in", hoverTooltip: "Everything was bathed in gold", clickable: true},
     ],
   },
-  
+
   {
     id: "image-changes",
     transition: "click",
-    bottomText: "",
     cursor: "default",
-    cursorTooltip: null,
-    tooltipVisible: false,
     delay: true,
-    bottomText:"Do you remember what time of day it was?",
+    bottomText: "Do you remember what time of day it was?",
     blocks: [
       { x: 0, y: 1, visible: true, image: "img4.JPG", hoverCursor: "zoom-in", hoverTooltip: "The trees were golden too", clickable: true},
       { x: 1, y: 1, visible: true, image: "img5.jpeg", hoverCursor: "zoom-in", hoverTooltip: "The trees were golden too", clickable: true},
@@ -442,7 +433,7 @@ window.Scenes = [
       { x: 2, y: 0, visible: true, image: "nothing/disco1.jpeg" },
       { x: 0, y: 2, visible: true, image: "nothing/disco2.jpeg" },
       { x: 1, y: 1, visible: true, image: "nothing/disco3.jpeg" },
-      { x: 3, y: 0, visible: true, image: "nothing/disco4.jpeg" },
+      { x: 0, y: 0, visible: true, image: "nothing/disco4.jpeg" },
     ],
   },
 
@@ -458,8 +449,6 @@ window.Scenes = [
       { x: 0, y: 0, visible: true, image: "nothing/gate1.jpeg" },
       { x: 1, y: 0, visible: true, image: "nothing/gate2.jpeg" },
       { x: 2, y: 0, visible: true, image: "nothing/gate3.jpeg" },
-
-      // Add more as needed if there are additional gate images
     ],
   },
 
@@ -500,13 +489,9 @@ window.Scenes = [
     cursorTooltip: "",
     tooltipVisible: true,
     breakoutGrid: true,
-    breakoutCenterImage: "nothing/first.jpg",
-    breakoutImages: [
-      "img1.jpeg", "img2.jpeg", "img3.jpeg", "img4.JPG", "img5.jpeg", "img6.JPG",
-      "next/img1.jpeg", "next/img2.jpeg", "next/img3.jpeg", "next/img4.jpeg", "next/img5.jpeg", "next/img6.jpeg", "next/img7.jpeg", "next/img8.jpeg", "next/img9.jpeg", "next/bw5.jpeg", "next/bw8.jpeg", "next/bw9.jpeg",
-      "shuffle/img1.jpeg", "shuffle/img2.jpeg", "shuffle/img3.jpeg", "shuffle/center.jpeg",
-      "nothing/disco1.jpeg", "nothing/disco2.jpeg", "nothing/disco3.jpeg", "nothing/disco4.jpeg", "nothing/gate1.jpeg", "nothing/gate2.jpeg", "nothing/gate3.jpeg", "nothing/shoes.jpeg", "nothing/shoes1.jpeg", "nothing/sun1.JPG", "nothing/sun2.jpeg", "nothing/sun3.jpeg", "nothing/first.jpg", "nothing/output.gif",
-    ],
+    breakoutBackground: "bg.png",
+    breakoutEndImage: "nothing/output.gif",
+    breakoutAudio: "nothing/cropped.mp3",
     blocks: [],
   },
 
