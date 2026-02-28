@@ -6,6 +6,7 @@
 
   let currentScene = -1;
   let autoTimer = null;
+  let flashTimer = null;
   let sceneClickHandler = null;
   let cellClickHandlers = [];
   let isTransitioning = false;
@@ -377,6 +378,9 @@
     if (scene.breakoutGrid && scene.breakoutCenterImage) {
       promises.push(preloadImage(scene.breakoutCenterImage));
     }
+    if (scene.flashSequence && Array.isArray(scene.flashSequence.images)) {
+      scene.flashSequence.images.forEach(function (src) { promises.push(preloadImage(src)); });
+    }
     return Promise.all(promises);
   }
 
@@ -463,7 +467,7 @@
     padding: "10px 12px",
     borderRadius: "0px 10px 10px 10px",
     zIndex: "1000",
-    maxWidth: "230px",
+    maxWidth: "400px",
     whiteSpace: "normal",
     display: "none",
     opacity: "0",
@@ -619,6 +623,10 @@
     if (autoTimer) {
       clearTimeout(autoTimer);
       autoTimer = null;
+    }
+    if (flashTimer) {
+      clearInterval(flashTimer);
+      flashTimer = null;
     }
     if (sceneClickHandler) {
       document.removeEventListener("click", sceneClickHandler);
@@ -990,13 +998,51 @@
         }
       }
 
+      // --- Flash sequence: rapid-fire images in center cell ---
+      if (nextScene.flashSequence && nextScene.flashSequence.images && nextScene.flashSequence.images.length > 0) {
+        var fs = nextScene.flashSequence;
+        var fsImages = fs.images;
+        var fsInterval = fs.interval || 500;
+        var fsCell = getCell(1, 1);
+        var fsIndex = 0;
+
+        function flashNext() {
+          if (!fsCell) return;
+          fsCell.innerHTML = "";
+          fsCell.style.opacity = "1";
+          var img = makeImageEl(fsImages[fsIndex], 1, 1);
+          fsCell.appendChild(img);
+          fsIndex++;
+          if (fsIndex >= fsImages.length) {
+            fsIndex = 0;
+          }
+        }
+
+        flashNext();
+        if (fsImages.length > 1) {
+          flashTimer = setInterval(flashNext, fsInterval);
+        }
+
+        if (nextScene.transition === "click" && fsCell) {
+          fsCell.style.cursor = nextScene.cursor || "pointer";
+          var flashClickHandler = function (e) {
+            e.stopPropagation();
+            if (isTransitioning) return;
+            fsCell.removeEventListener("click", flashClickHandler);
+            goToScene(currentScene + 1);
+          };
+          fsCell.addEventListener("click", flashClickHandler);
+          cellClickHandlers.push({ cell: fsCell, handler: flashClickHandler });
+        }
+      }
+
       // --- 8. Click or auto advance ---
-      if (nextScene.transition === "auto" && typeof nextScene.autoDuration === "number") {
+      if (!nextScene.flashSequence && nextScene.transition === "auto" && typeof nextScene.autoDuration === "number") {
         var autoDelay = bottomTextDelay ? bottomTextDelayMs + nextScene.autoDuration : nextScene.autoDuration;
         autoTimer = setTimeout(function () {
           goToScene(currentScene + 1);
         }, autoDelay);
-      } else if (nextScene.transition === "click") {
+      } else if (nextScene.transition === "click" && !nextScene.flashSequence) {
         var clickableBlocks = (nextScene.blocks || []).filter(function (b) { return b.clickable === true; });
         if (clickableBlocks.length > 0) {
           clickableBlocks.forEach(function (block) {

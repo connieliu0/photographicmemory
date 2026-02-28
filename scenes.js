@@ -183,7 +183,7 @@ window.Scenes = [
   {
     id: "spotlight-you",
     transition: "auto",
-    autoDuration: 2000,
+    autoDuration: 3000,
     bottomText: "Photos are supposed to help with that",
     cursor: "default",
     cursorTooltip: null,
@@ -200,7 +200,7 @@ window.Scenes = [
   {
     id: "spotlight-me",
     transition: "auto",
-    autoDuration: 2000,
+    autoDuration: 2500,
     delay: true,
     bottomText: "But not completely",
     cursor: "default",
@@ -226,7 +226,7 @@ window.Scenes = [
     blocks: [
       { x: 1, y: 0, visible: true, image: "next/img2.jpeg" },
       { x: 1, y: 2, visible: true, image: "next/img1.jpeg" },
-      { x: 1, y: 1, visible: false, image: "next/img4.jpeg", hoverCursor: "pointer", hoverTooltip: "Sometimes the gaps have become too long", clickable: true},
+      { x: 1, y: 1, visible: false, image: "next/img4.jpeg", hoverCursor: "pointer", hoverTooltip: "Sometimes there are gaps", clickable: true},
       { x: 0, y: 1, visible: true, image: "next/img3.jpeg" },
       { x:0, y: 0, visible: true, image: "next/img5.jpeg" },
       { x:0, y: 2, visible: true, image: "next/img7.jpeg" },
@@ -249,7 +249,7 @@ window.Scenes = [
       { x:0, y: 2, visible: true, image: "next/img7.jpeg" },
       { x:2, y: 0, visible: true, image: "next/img6.jpeg" },
       { x:2, y: 2, visible: true, image: "next/img8.jpeg" },
-      { x:2, y: 1, visible: false, image: "next/img9.jpeg", hoverCursor: "not-allowed", hoverTooltip: "Or there isn't a connection to the present anymore", clickable: true},
+      { x:2, y: 1, visible: false, image: "next/img9.jpeg", hoverCursor: "not-allowed", hoverTooltip: "Breaking the connection to the present", clickable: true},
         ],
   },
 
@@ -313,17 +313,16 @@ window.Scenes = [
 
   {
     id: "remember-fully",
-    transition: "auto",
-    autoDuration: 4000,
+    transition: "click",
     cursor: "wait",
     bottomText: "You're still there aren't you?",
     tooltipVisible: false,
     blocks: [
       { x: 1, y: 0, visible: false, image: "next/img2.jpeg" },
       { x: 1, y: 2, visible: false, image: "next/img1.jpeg" },
-      { x: 1, y: 1, visible: false, image: "next/img4.jpeg" },
+      { x: 1, y: 1, visible: false, image: "next/img4.jpeg", hoverCursor: "help", clickable: true },
       { x: 0, y: 1, visible: false, image: "next/img3.jpeg" },
-      { x:0, y: 0, visible: false, image: "next/bw5.jpeg" },
+      { x:0, y: 0, visible: false, image: "next/bw5.jpeg"},
       { x:0, y: 2, visible: false, image: "next/img7.jpeg" },
       { x:2, y: 0, visible: false, image: "next/img6.jpeg" },
       { x:2, y: 2, visible: false, image: "next/bw8.jpeg" },
@@ -333,30 +332,28 @@ window.Scenes = [
 
   {
     id: "remember-fully",
-    transition: "auto",
-    autoDuration: 2000,
+    transition: "click",
     cursor: "wait",
     bottomText: "Shouldn’t you have learned by now?",
     tooltipVisible: false,
     blocks: [
 
-      { x: 0, y: 1, visible: true, image: "shuffle/img1.jpeg" },
-      { x:2, y: 0, visible: true, image: "shuffle/img2.jpeg" },
-      { x:1, y: 2, visible: true, image: "shuffle/img3.jpeg" },
+      { x: 0, y: 1, visible: true, image: "shuffle/img1.jpeg", hoverCursor: "help", clickable: true },
+      { x:2, y: 0, visible: true, image: "shuffle/img2.jpeg", hoverCursor: "help", clickable: true },
+      { x:1, y: 2, visible: true, image: "shuffle/img3.jpeg", hoverCursor: "help", clickable: true },
 
         ],
   },
 
   {
     id: "gaps-hide-between",
-    transition: "auto",
-    autoDuration: 2000,
+    transition: "click",
     bottomText: "You're always looking back for an answer to your questions",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
     blocks: [
-      { x:1, y: 1, visible: true, image: "shuffle/center.jpeg" },
+      { x:1, y: 1, visible: true, image: "shuffle/center.jpeg", hoverCursor: "zoom-in", clickable: true },
     ],
   },
 
@@ -456,7 +453,7 @@ window.Scenes = [
     id: "nothing chnages",
     transition: "auto",
     autoDuration: 2000,
-    bottomText: "Nothing changes",
+    bottomText: "Look closer",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
@@ -470,7 +467,7 @@ window.Scenes = [
     id: "nothing chnages",
     transition: "auto",
     autoDuration: 2000,
-    bottomText: "Nothing changes",
+    bottomText: "Look closer",
     cursor: "default",
     cursorTooltip: null,
     tooltipVisible: false,
@@ -480,7 +477,24 @@ window.Scenes = [
       { x: 0, y: 2, visible: true, image: "nothing/sun3.jpeg" },
     ],
   },
-
+  {
+    id: "nothing-flash",
+    transition: "click",
+    bottomText: "Nothing changes",
+    cursor: "zoom-in",
+    tooltipVisible: false,
+    flashSequence: {
+      interval: 200,
+      images: ["img1.jpeg", "img2.jpeg", "img3.jpeg", "img4.JPG", "img5.jpeg", "img6.JPG", "next/img8.jpeg",
+        "next/img1.jpeg", "next/img2.jpeg", "next/img3.jpeg", "next/img4.jpeg", "next/img5.jpeg",
+        "nothing/sun1.JPG", "nothing/sun2.jpeg", "nothing/sun3.jpeg",
+        "nothing/disco1.jpeg", "nothing/disco2.jpeg", "nothing/disco3.jpeg",
+        "nothing/gate1.jpeg", "nothing/gate2.jpeg", "nothing/gate3.jpeg",
+        "nothing/shoes.jpeg", "nothing/shoes1.jpeg", "nothing/first.jpg",
+      ],
+    },
+    blocks: [],
+  },
   {
     id: "see-it-now",
     transition: "click",
