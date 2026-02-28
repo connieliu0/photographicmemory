@@ -481,7 +481,7 @@ window.Scenes = [
     id: "nothing-flash",
     transition: "click",
     bottomText: "Nothing changes",
-    cursor: "zoom-in",
+    cursor: "default",
     tooltipVisible: false,
     flashSequence: {
       interval: 200,

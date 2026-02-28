@@ -11,6 +11,16 @@
   let cellClickHandlers = [];
   let isTransitioning = false;
 
+  // Mobile touch support
+  var _isTouchDevice = false;
+  function isTouchDevice() {
+    return _isTouchDevice;
+  }
+  var mobileRevealedCell = null;
+  var mobileRevealedScene = false;
+  var blockNextClick = false;
+  window.addEventListener("touchstart", function () { _isTouchDevice = true; }, { once: true, passive: true });
+
   if (typeof gsap !== "undefined") {
     gsap.defaults({ ease: TRANSITION_EASE });
   }
@@ -85,15 +95,27 @@
       height: CELL_SIZE,
       overflow: "hidden",
       position: "relative",
-      border: "1px solid white",
+      border: "12px solid white",
       opacity: "0",
     });
     cell.addEventListener("mouseenter", function (e) {
+      if (isTouchDevice()) return;
       var r = parseInt(this.dataset.row, 10);
       var col = parseInt(this.dataset.col, 10);
       var block = getBlockAt(r, col);
       if (!block) return;
       var scene = window.Scenes && window.Scenes[currentScene];
+      if (block.clickable && (block.hoverCursor || (block.hoverTooltip != null && block.hoverTooltip !== ""))) {
+        if (block.visible === false) {
+          this.style.backgroundColor = "#F5F5F5";
+          this.style.opacity = "1";
+        } else if (block.image) {
+          this.style.opacity = "0.9";
+        } else {
+          var placeholder = this.querySelector("div");
+          if (placeholder) placeholder.style.backgroundColor = "#444";
+        }
+      }
       if (block.hoverCursor) {
         gridClipWrapper.style.cursor = block.hoverCursor;
       }
@@ -102,8 +124,20 @@
       }
     });
     cell.addEventListener("mouseleave", function () {
+      if (isTouchDevice()) return;
       var scene = window.Scenes && window.Scenes[currentScene];
       if (!scene) return;
+      var r = parseInt(this.dataset.row, 10);
+      var c = parseInt(this.dataset.col, 10);
+      var block = getBlockAt(r, c);
+      if (block && block.visible === false) {
+        this.style.opacity = "0";
+        this.style.backgroundColor = "";
+      } else {
+        this.style.opacity = "1";
+        var placeholder = this.querySelector("div");
+        if (placeholder) placeholder.style.backgroundColor = "#555";
+      }
       gridClipWrapper.style.cursor = scene.cursor || "default";
       clearTooltipDelay();
       if (scene.tooltipVisible && scene.cursorTooltip != null && scene.cursorTooltip !== "") {
@@ -156,6 +190,7 @@
     if (scene.breakoutBackground) {
       breakoutOverlay.style.overflowX = "auto";
       breakoutOverlay.style.overflowY = "hidden";
+      breakoutOverlay.style.touchAction = "pan-x";
       breakoutGridEl.style.display = "inline-block";
       breakoutGridEl.style.width = "auto";
       breakoutGridEl.style.height = "100vh";
@@ -327,6 +362,7 @@
     breakoutOverlay.style.display = "none";
     breakoutOverlay.style.overflowX = "hidden";
     breakoutOverlay.style.overflowY = "hidden";
+    breakoutOverlay.style.touchAction = "none";
     breakoutGridEl.style.display = "grid";
     breakoutGridEl.style.position = "static";
     breakoutGridEl.style.width = "100vw";
@@ -462,19 +498,21 @@
     pointerEvents: "none",
     color: "white",
     fontSize: "15px",
-    fontFamily: "Times New Roman",
+    fontFamily: "'Neucha', cursive",
     background: "rgba(0,0,0,0.8)",
-    padding: "10px 12px",
+    padding: "10px 12px 8px 12px",
     borderRadius: "0px 10px 10px 10px",
     zIndex: "1000",
     maxWidth: "400px",
     whiteSpace: "normal",
     display: "none",
     opacity: "0",
+    letterSpacing: "0.05em",
   });
   document.body.appendChild(tooltipEl);
 
   document.addEventListener("mousemove", function (e) {
+    if (isTouchDevice()) return;
     lastMouseX = e.clientX;
     lastMouseY = e.clientY;
     if (!tooltipActive) return;
@@ -482,7 +520,133 @@
     tooltipEl.style.top = (e.clientY + 16) + "px";
   });
 
+  // --- Mobile touch: tap-to-reveal, second tap advances ---
+
+  var cursorIconEl = document.createElement("div");
+  cursorIconEl.id = "mobile-cursor-icon";
+  Object.assign(cursorIconEl.style, {
+    position: "fixed",
+    pointerEvents: "none",
+    fontSize: "24px",
+    zIndex: "1001",
+    display: "none",
+    lineHeight: "1",
+    filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))",
+    transform: "translate(-50%, -100%)",
+  });
+  document.body.appendChild(cursorIconEl);
+
+  var cursorEmojiMap = {
+    "zoom-in": "\uD83D\uDD0E",
+    "zoom-out": "\uD83D\uDD0D",
+    "help": "\u2753",
+    "wait": "\u23F3",
+    "pointer": "\uD83D\uDC46",
+    "grabbing": "\u270A",
+    "not-allowed": "\uD83D\uDEAB",
+    "nesw-resize": "\u2195\uFE0F",
+  };
+
+  function showCursorIcon(type, x, y) {
+    var emoji = cursorEmojiMap[type];
+    if (!emoji) { cursorIconEl.style.display = "none"; return; }
+    cursorIconEl.textContent = emoji;
+    cursorIconEl.style.display = "block";
+    cursorIconEl.style.left = x + "px";
+    cursorIconEl.style.top = (y - 4) + "px";
+  }
+
+  function hideCursorIcon() {
+    cursorIconEl.style.display = "none";
+  }
+
+  function clearMobileReveal() {
+    mobileRevealedCell = null;
+    mobileRevealedScene = false;
+    hideCursorIcon();
+  }
+
+  document.addEventListener("touchend", function (e) {
+    if (!isTouchDevice()) return;
+    var scene = window.Scenes && window.Scenes[currentScene];
+    if (!scene || isTransitioning) return;
+    if (breakoutOverlay.style.display === "block") return;
+
+    var touch = e.changedTouches[0];
+    var tx = touch.clientX;
+    var ty = touch.clientY;
+    lastMouseX = tx;
+    lastMouseY = ty;
+
+    // Second tap: clear revealed state and let the click event fire to advance
+    if (mobileRevealedCell || mobileRevealedScene) {
+      clearMobileReveal();
+      clearTooltipDelay();
+      tooltipActive = false;
+      tooltipEl.style.display = "none";
+      tooltipEl.style.opacity = "0";
+      return;
+    }
+
+    // First tap: check for content to reveal
+    var el = document.elementFromPoint(tx, ty);
+    var tappedCell = el && el.closest && el.closest(".cell");
+    var block = null;
+    if (tappedCell && !tappedCell.closest("#breakout-overlay")) {
+      var r = parseInt(tappedCell.dataset.row, 10);
+      var c = parseInt(tappedCell.dataset.col, 10);
+      block = getBlockAt(r, c);
+    }
+
+    var cellHasContent = block && (block.hoverTooltip || block.hoverCursor);
+    var sceneHasTooltip = scene.tooltipVisible && scene.cursorTooltip != null && scene.cursorTooltip !== "";
+
+    if (cellHasContent) {
+      mobileRevealedCell = tappedCell;
+      blockNextClick = true;
+      clearTooltipDelay();
+      if (block.hoverTooltip) {
+        tooltipActive = true;
+        tooltipEl.textContent = block.hoverTooltip;
+        tooltipEl.style.display = "block";
+        tooltipEl.style.opacity = "1";
+        tooltipEl.style.left = (tx + 16) + "px";
+        tooltipEl.style.top = (ty + 16) + "px";
+      }
+      if (block.hoverCursor) {
+        showCursorIcon(block.hoverCursor, tx, ty);
+      }
+      return;
+    }
+
+    if (sceneHasTooltip) {
+      mobileRevealedScene = true;
+      blockNextClick = true;
+      clearTooltipDelay();
+      tooltipActive = true;
+      tooltipEl.textContent = scene.cursorTooltip;
+      tooltipEl.style.display = "block";
+      tooltipEl.style.opacity = "1";
+      tooltipEl.style.left = (tx + 16) + "px";
+      tooltipEl.style.top = (ty + 16) + "px";
+      if (scene.cursor && scene.cursor !== "default") {
+        showCursorIcon(scene.cursor, tx, ty);
+      }
+      return;
+    }
+  }, { passive: true });
+
+  // Block the click event that follows a first-tap reveal
+  document.addEventListener("click", function (e) {
+    if (blockNextClick) {
+      blockNextClick = false;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    }
+  }, true);
+
   function applyHoverUnderCursor() {
+    if (isTouchDevice()) return;
     if (lastMouseX < 0 && lastMouseY < 0) return;
     if (breakoutOverlay.style.display === "block") return;
     var scene = window.Scenes && window.Scenes[currentScene];
@@ -619,6 +783,8 @@
   // --- Scene state machine ---
 
   function teardownTransition() {
+    clearMobileReveal();
+    blockNextClick = false;
     clearTooltipDelay();
     if (autoTimer) {
       clearTimeout(autoTimer);
@@ -912,7 +1078,7 @@
 
       // --- 6. Cursor and tooltip ---
       gridClipWrapper.style.cursor = nextScene.cursor || "default";
-      if (nextScene.tooltipVisible && nextScene.cursorTooltip != null && nextScene.cursorTooltip !== "") {
+      if (!isTouchDevice() && nextScene.tooltipVisible && nextScene.cursorTooltip != null && nextScene.cursorTooltip !== "") {
         tooltipActive = true;
         tooltipEl.textContent = nextScene.cursorTooltip;
         tooltipEl.style.display = "block";
@@ -1023,15 +1189,19 @@
           flashTimer = setInterval(flashNext, fsInterval);
         }
 
-        if (nextScene.transition === "click") {
-          if (fsCell) fsCell.style.cursor = nextScene.cursor || "pointer";
-          sceneClickHandler = function () {
-            if (isTransitioning) { isTransitioning = false; }
-            document.removeEventListener("click", sceneClickHandler);
-            sceneClickHandler = null;
+        if (nextScene.transition === "click" && fsCell) {
+          fsCell.style.cursor = "zoom-in";
+          var fsClickHandler = function (e) {
+            e.stopPropagation();
+            if (isTransitioning) return;
+            fsCell.removeEventListener("click", fsClickHandler);
+            cellClickHandlers = cellClickHandlers.filter(function (entry) { return entry.cell !== fsCell; });
             goToScene(currentScene + 1);
           };
-          document.addEventListener("click", sceneClickHandler);
+          fsCell.addEventListener("click", fsClickHandler);
+          cellClickHandlers.push({ cell: fsCell, handler: fsClickHandler });
+        } else if (fsCell) {
+          fsCell.style.cursor = "default";
         }
       }
 
