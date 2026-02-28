@@ -1023,16 +1023,15 @@
           flashTimer = setInterval(flashNext, fsInterval);
         }
 
-        if (nextScene.transition === "click" && fsCell) {
-          fsCell.style.cursor = nextScene.cursor || "pointer";
-          var flashClickHandler = function (e) {
-            e.stopPropagation();
-            if (isTransitioning) return;
-            fsCell.removeEventListener("click", flashClickHandler);
+        if (nextScene.transition === "click") {
+          if (fsCell) fsCell.style.cursor = nextScene.cursor || "pointer";
+          sceneClickHandler = function () {
+            if (isTransitioning) { isTransitioning = false; }
+            document.removeEventListener("click", sceneClickHandler);
+            sceneClickHandler = null;
             goToScene(currentScene + 1);
           };
-          fsCell.addEventListener("click", flashClickHandler);
-          cellClickHandlers.push({ cell: fsCell, handler: flashClickHandler });
+          document.addEventListener("click", sceneClickHandler);
         }
       }
 
