@@ -10,6 +10,9 @@
   let sceneClickHandler = null;
   let cellClickHandlers = [];
   let isTransitioning = false;
+  let hoverSoundAudio = null;
+  let backgroundSoundAudio = null;
+  let backgroundSoundCurrentUrl = null; // so we can keep playing when next scene uses same track
 
   // Mobile touch support
   var _isTouchDevice = false;
@@ -122,6 +125,21 @@
       if (block.hoverTooltip != null && block.hoverTooltip !== "") {
         scheduleOrShowTooltip(block.hoverTooltip, e.clientX, e.clientY, scene.tooltipDelay || block.delayTooltip);
       }
+      // Optional: block.hoverSound = URL to play only while hovering over this block (stops on mouseleave)
+      if (block.hoverSound) {
+        if (hoverSoundAudio) {
+          hoverSoundAudio.pause();
+          hoverSoundAudio = null;
+        }
+        hoverSoundAudio = new Audio(block.hoverSound);
+        if (block.hoverSoundLoop) hoverSoundAudio.loop = true;
+        hoverSoundAudio.volume = block.hoverSoundVolume != null ? block.hoverSoundVolume : 1;
+        hoverSoundAudio.play().catch(function (err) { console.warn("hover sound play failed:", err); });
+      }
+      var blockHasHoverBehavior = block.hoverCursor || (block.hoverTooltip != null && block.hoverTooltip !== "") || block.hoverSound;
+      if (blockHasHoverBehavior && backgroundSoundAudio) {
+        backgroundSoundAudio.volume = (scene.backgroundSoundHoverVolume != null ? scene.backgroundSoundHoverVolume : 1);
+      }
     });
     cell.addEventListener("mouseleave", function () {
       if (isTouchDevice()) return;
@@ -139,6 +157,16 @@
         if (placeholder) placeholder.style.backgroundColor = "#555";
       }
       gridClipWrapper.style.cursor = scene.cursor || "default";
+      if (hoverSoundAudio) {
+        hoverSoundAudio.pause();
+        hoverSoundAudio.currentTime = 0;
+        hoverSoundAudio = null;
+      }
+      var blockHadHoverBehavior = block && (block.hoverCursor || (block.hoverTooltip != null && block.hoverTooltip !== "") || block.hoverSound);
+      if (blockHadHoverBehavior && backgroundSoundAudio && scene) {
+        var idleVol = scene.backgroundSoundVolume != null ? scene.backgroundSoundVolume : 0.3;
+        backgroundSoundAudio.volume = idleVol;
+      }
       clearTooltipDelay();
       if (scene.tooltipVisible && scene.cursorTooltip != null && scene.cursorTooltip !== "") {
         scheduleOrShowTooltip(scene.cursorTooltip, lastMouseX, lastMouseY, scene.tooltipDelay);
@@ -191,17 +219,26 @@
       breakoutOverlay.style.overflowX = "auto";
       breakoutOverlay.style.overflowY = "hidden";
       breakoutOverlay.style.touchAction = "pan-x";
+      breakoutOverlay.style.height = "100vh";
+      breakoutOverlay.style.minHeight = "100vh";
       breakoutGridEl.style.display = "inline-block";
       breakoutGridEl.style.width = "auto";
       breakoutGridEl.style.height = "100vh";
+      breakoutGridEl.style.minHeight = "100vh";
       breakoutGridEl.style.position = "relative";
       breakoutGridEl.innerHTML = "";
 
       var img = document.createElement("img");
+      var vh = "100vh";
+      if (typeof window !== "undefined" && window.innerHeight) {
+        vh = window.innerHeight + "px";
+      }
       Object.assign(img.style, {
-        height: "100vh",
+        height: vh,
+        minHeight: "100vh",
         width: "auto",
         display: "block",
+        verticalAlign: "top",
       });
       img.src = scene.breakoutBackground;
       breakoutGridEl.appendChild(img);
@@ -426,7 +463,7 @@
   bottomTextWrap.id = "bottom-text-wrap";
   Object.assign(bottomTextWrap.style, {
     position: "fixed",
-    bottom: "8%",
+    bottom: "10%",
     left: "50%",
     transform: "translateX(-50%)",
     pointerEvents: "none",
@@ -588,9 +625,19 @@
       return;
     }
 
-    // First tap: check for content to reveal
+    // First tap: check what was tapped
     var el = document.elementFromPoint(tx, ty);
     var tappedCell = el && el.closest && el.closest(".cell");
+
+    // Flash sequence: tap on any flashing cell advances immediately on touch
+    if (scene.flashSequence && tappedCell) {
+      var r = parseInt(tappedCell.dataset.row, 10);
+      var c = parseInt(tappedCell.dataset.col, 10);
+      if (isFlashCell(scene, r, c)) {
+        goToScene(currentScene + 1);
+        return;
+      }
+    }
     var block = null;
     if (tappedCell && !tappedCell.closest("#breakout-overlay")) {
       var r = parseInt(tappedCell.dataset.row, 10);
@@ -687,6 +734,43 @@
   }
 
   // --- Cell helpers ---
+
+  function getFlashCells(scene) {
+    var fs = scene && scene.flashSequence;
+    if (!fs) return [];
+    if (fs.perCell) {
+      var list = [];
+      for (var k in fs.perCell) {
+        var parts = k.split(",");
+        if (parts.length >= 2) {
+          var row = parseInt(parts[0], 10);
+          var col = parseInt(parts[1], 10);
+          var imgs = fs.perCell[k];
+          if (Array.isArray(imgs) && imgs.length > 0) list.push({ row: row, col: col, images: imgs });
+        }
+      }
+      return list;
+    }
+    if (!fs.images || !Array.isArray(fs.images) || fs.images.length === 0) return [];
+    var cells = fs.cells;
+    var positions = [];
+    if (cells === "all") {
+      for (var r = 0; r < GRID_SIZE; r++) for (var c = 0; c < GRID_SIZE; c++) positions.push({ row: r, col: c });
+    } else if (Array.isArray(cells)) {
+      cells.forEach(function (p) { positions.push({ row: p[0], col: p[1] }); });
+    } else {
+      positions.push({ row: 1, col: 1 });
+    }
+    return positions.map(function (p) { return { row: p.row, col: p.col, images: fs.images }; });
+  }
+
+  function isFlashCell(scene, row, col) {
+    var list = getFlashCells(scene);
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].row === row && list[i].col === col) return true;
+    }
+    return false;
+  }
 
   function getBlockAt(row, col) {
     var scene = window.Scenes && window.Scenes[currentScene];
@@ -825,6 +909,25 @@
     if (!nextScene.persistAudio && breakoutAudio) {
       breakoutAudio.pause();
       breakoutAudio = null;
+    }
+    if (hoverSoundAudio) {
+      hoverSoundAudio.pause();
+      hoverSoundAudio.currentTime = 0;
+      hoverSoundAudio = null;
+    }
+    var prevBgUrl = prevScene && prevScene.backgroundSound;
+    var nextBgUrl = nextScene.backgroundSound;
+    var keepBackgroundSound = nextBgUrl && (nextScene.persistBackgroundSound || nextBgUrl === prevBgUrl);
+    if (!keepBackgroundSound && backgroundSoundAudio) {
+      backgroundSoundAudio.pause();
+      backgroundSoundAudio.currentTime = 0;
+      backgroundSoundAudio = null;
+      backgroundSoundCurrentUrl = null;
+    }
+    if (keepBackgroundSound && backgroundSoundAudio) {
+      backgroundSoundCurrentUrl = nextScene.backgroundSound;
+      var nextIdleVol = nextScene.backgroundSoundVolume != null ? nextScene.backgroundSoundVolume : 0.3;
+      backgroundSoundAudio.volume = nextIdleVol;
     }
 
     currentScene = n;
@@ -1105,6 +1208,28 @@
       }
       applyHoverUnderCursor();
 
+      // --- 6b. Scene background sound (plays at backgroundSoundVolume; louder at backgroundSoundHoverVolume when hovering blocks with hover behavior) ---
+      if (nextScene.backgroundSound) {
+        var sameTrack = backgroundSoundAudio && backgroundSoundCurrentUrl === nextScene.backgroundSound;
+        if (!sameTrack) {
+          if (backgroundSoundAudio) {
+            backgroundSoundAudio.pause();
+            backgroundSoundAudio.currentTime = 0;
+            backgroundSoundAudio = null;
+          }
+          backgroundSoundAudio = new Audio(nextScene.backgroundSound);
+          backgroundSoundCurrentUrl = nextScene.backgroundSound;
+          backgroundSoundAudio.loop = nextScene.backgroundSoundLoop !== false;
+          backgroundSoundAudio.volume = nextScene.backgroundSoundVolume != null ? nextScene.backgroundSoundVolume : 0.3;
+          backgroundSoundAudio.play().catch(function (err) { console.warn("background sound play failed:", err); });
+        } else {
+          var idleVol = nextScene.backgroundSoundVolume != null ? nextScene.backgroundSoundVolume : 0.3;
+          backgroundSoundAudio.volume = idleVol;
+        }
+      } else {
+        backgroundSoundCurrentUrl = null;
+      }
+
       // --- 7. Bottom text crossfade ---
       var prevText = prevScene && prevScene.bottomText ? prevScene.bottomText : "";
       var nextText = nextScene.bottomText ? nextScene.bottomText : "";
@@ -1164,29 +1289,76 @@
         }
       }
 
-      // --- Flash sequence: rapid-fire images in center cell ---
-      if (nextScene.flashSequence && nextScene.flashSequence.images && nextScene.flashSequence.images.length > 0) {
+      // --- Flash sequence: rapid-fire images in one or more cells ---
+      var fsEntries = getFlashCells(nextScene);
+      if (fsEntries.length > 0) {
+        var fs = nextScene.flashSequence;
+        var fsInterval = fs.interval || 500;
+        var fsIndices = fsEntries.map(function () { return 0; });
+
+        function flashNext() {
+          fsEntries.forEach(function (entry, i) {
+            var cell = getCell(entry.row, entry.col);
+            if (!cell || !entry.images.length) return;
+            cell.innerHTML = "";
+            cell.style.opacity = "1";
+            var idx = fsIndices[i];
+            var img = makeImageEl(entry.images[idx], entry.col, entry.row);
+            cell.appendChild(img);
+            fsIndices[i] = (idx + 1) % entry.images.length;
+          });
+        }
+
+        flashNext();
+        var anyMulti = fsEntries.some(function (e) { return e.images.length > 1; });
+        if (anyMulti) {
+          flashTimer = setInterval(flashNext, fsInterval);
+        }
+
+        if (nextScene.transition === "click") {
+          fsEntries.forEach(function (entry) {
+            var c = getCell(entry.row, entry.col);
+            if (!c) return;
+            c.style.cursor = "zoom-in";
+            var fsClickHandler = function (e) {
+              e.stopPropagation();
+              if (isTransitioning) return;
+              fsEntries.forEach(function (e2) {
+                var c2 = getCell(e2.row, e2.col);
+                if (c2) c2.removeEventListener("click", fsClickHandler);
+              });
+              cellClickHandlers = cellClickHandlers.filter(function (h) { return h.handler !== fsClickHandler; });
+              goToScene(currentScene + 1);
+            };
+            c.addEventListener("click", fsClickHandler);
+            cellClickHandlers.push({ cell: c, handler: fsClickHandler });
+          });
+        } else {
+          fsEntries.forEach(function (entry) {
+            var c = getCell(entry.row, entry.col);
+            if (c) c.style.cursor = "default";
+          });
+        }
+      } else if (nextScene.flashSequence && nextScene.flashSequence.images && nextScene.flashSequence.images.length > 0) {
+        // backward compat: images only, no perCell/cells -> center cell
         var fs = nextScene.flashSequence;
         var fsImages = fs.images;
         var fsInterval = fs.interval || 500;
         var fsCell = getCell(1, 1);
         var fsIndex = 0;
 
-        function flashNext() {
+        function flashNextCompat() {
           if (!fsCell) return;
           fsCell.innerHTML = "";
           fsCell.style.opacity = "1";
           var img = makeImageEl(fsImages[fsIndex], 1, 1);
           fsCell.appendChild(img);
-          fsIndex++;
-          if (fsIndex >= fsImages.length) {
-            fsIndex = 0;
-          }
+          fsIndex = (fsIndex + 1) % fsImages.length;
         }
 
-        flashNext();
+        flashNextCompat();
         if (fsImages.length > 1) {
-          flashTimer = setInterval(flashNext, fsInterval);
+          flashTimer = setInterval(flashNextCompat, fsInterval);
         }
 
         if (nextScene.transition === "click" && fsCell) {
