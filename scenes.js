@@ -370,15 +370,17 @@ window.Scenes = [
     bottomText: "Shouldn’t you have learned by now?",
     blurOverlay: 2,
     tooltipVisible: false,
-    blocks: [
+    flashSequence: {
+      interval: 100,
+      perCell: {
 
-      { x: 0, y: 1, visible: true, image: "shuffle/img1.jpeg", hoverCursor: "zoom-in", clickable: true },
-      { x:2, y: 0, visible: true, image: "shuffle/img2.jpeg", hoverCursor: "zoom-in", clickable: true },
-      { x:1, y: 2, visible: true, image: "shuffle/img3.jpeg", hoverCursor: "zoom-in", clickable: true },
+       "1,1": [
+        "next/bw5.jpeg", "next/bw8.jpeg", "next/bw9.jpeg", "next/img7bw.jpeg", "next/img8bw.jpeg", "next/img9bw.jpeg", "next/img6.JPG"
+        ]
 
-        ],
-  },
-
+    }
+  }
+},
   {
     id: "gaps-hide-between",
     transition: "click",
