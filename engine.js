@@ -1304,6 +1304,8 @@
             cell.style.opacity = "1";
             var idx = fsIndices[i];
             var img = makeImageEl(entry.images[idx], entry.col, entry.row);
+            img.style.pointerEvents = "none";
+            img.draggable = false;
             cell.appendChild(img);
             fsIndices[i] = (idx + 1) % entry.images.length;
           });
@@ -1352,6 +1354,8 @@
           fsCell.innerHTML = "";
           fsCell.style.opacity = "1";
           var img = makeImageEl(fsImages[fsIndex], 1, 1);
+          img.style.pointerEvents = "none";
+          img.draggable = false;
           fsCell.appendChild(img);
           fsIndex = (fsIndex + 1) % fsImages.length;
         }
