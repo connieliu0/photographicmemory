@@ -1394,10 +1394,22 @@
 
       // --- 8. Click or auto advance ---
       if (!nextScene.flashSequence && nextScene.transition === "auto" && typeof nextScene.autoDuration === "number") {
-        var autoDelay = bottomTextDelay ? bottomTextDelayMs + nextScene.autoDuration : nextScene.autoDuration;
-        autoTimer = setTimeout(function () {
-          goToScene(currentScene + 1);
-        }, autoDelay);
+        var autoWithTooltipOnMobile = isTouchDevice() && nextScene.tooltipVisible && nextScene.cursorTooltip != null && nextScene.cursorTooltip !== "";
+        if (autoWithTooltipOnMobile) {
+          // On mobile: auto scenes with changing cursor tooltip advance on tap so user can read the text
+          sceneClickHandler = function () {
+            if (isTransitioning) return;
+            document.removeEventListener("click", sceneClickHandler);
+            sceneClickHandler = null;
+            goToScene(currentScene + 1);
+          };
+          document.addEventListener("click", sceneClickHandler);
+        } else {
+          var autoDelay = bottomTextDelay ? bottomTextDelayMs + nextScene.autoDuration : nextScene.autoDuration;
+          autoTimer = setTimeout(function () {
+            goToScene(currentScene + 1);
+          }, autoDelay);
+        }
       } else if (nextScene.transition === "click" && !nextScene.flashSequence) {
         var clickableBlocks = (nextScene.blocks || []).filter(function (b) { return b.clickable === true; });
         if (clickableBlocks.length > 0) {
