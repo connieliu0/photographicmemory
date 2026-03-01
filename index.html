@@ -16,6 +16,20 @@
       overflow: hidden;
       touch-action: none;
     }
+    @media (max-width: 768px) {
+      #grid-container,
+      #grid {
+        max-width: 80vw;
+      }
+      #grid {
+        grid-template-columns: repeat(3, calc(80vw / 3)) !important;
+        grid-template-rows: repeat(3, calc(80vw / 3)) !important;
+      }
+      #grid .cell {
+        width: calc(80vw / 3) !important;
+        height: calc(80vw / 3) !important;
+      }
+    }
   </style>
 </head>
 <body>
