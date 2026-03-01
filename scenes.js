@@ -369,9 +369,9 @@ window.Scenes = [
     tooltipVisible: false,
     blocks: [
 
-      { x: 0, y: 1, visible: true, image: "shuffle/img1.jpeg", hoverCursor: "help", clickable: true },
-      { x:2, y: 0, visible: true, image: "shuffle/img2.jpeg", hoverCursor: "help", clickable: true },
-      { x:1, y: 2, visible: true, image: "shuffle/img3.jpeg", hoverCursor: "help", clickable: true },
+      { x: 0, y: 1, visible: true, image: "shuffle/img1.jpeg", hoverCursor: "zoom-in", clickable: true },
+      { x:2, y: 0, visible: true, image: "shuffle/img2.jpeg", hoverCursor: "zoom-in", clickable: true },
+      { x:1, y: 2, visible: true, image: "shuffle/img3.jpeg", hoverCursor: "zoom-in", clickable: true },
 
         ],
   },
@@ -450,8 +450,7 @@ window.Scenes = [
   },
   {
     id: "change",
-    transition: "auto",
-    autoDuration: 2000,
+    transition: "click",
     cursor: "zoom-in",
     blocks:   [
       { x: 2, y: 2, visible: true, image: "next/img6.jpeg" },
