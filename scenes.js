@@ -311,6 +311,7 @@ window.Scenes = [
     cursor: "wait",
     cursorTooltip: "distorts, remembers through",
     tooltipVisible: true,
+    blurOverlay: 1,
     blocks: [
       { x:0, y: 0, visible: true, image: "next/img1.jpeg" },
       { x: 0, y: 1, visible: true, image: "next/img3.jpeg" },
@@ -329,6 +330,7 @@ window.Scenes = [
     cursor: "zoom-in",
     cursorTooltip: "a smudged lens",
     tooltipVisible: true,
+    blurOverlay: 3,
     blocks: [
       { x:0, y: 0, visible: true, image: "next/img1.jpeg" },
       { x: 0, y: 1, visible: true, image: "next/img3.jpeg" },
@@ -366,6 +368,7 @@ window.Scenes = [
     transition: "click",
     cursor: "wait",
     bottomText: "Shouldn’t you have learned by now?",
+    blurOverlay: 2,
     tooltipVisible: false,
     blocks: [
 
@@ -384,7 +387,7 @@ window.Scenes = [
     cursorTooltip: null,
     tooltipVisible: false,
     blocks: [
-      { x:1, y: 1, visible: true, image: "shuffle/center.jpeg", hoverCursor: "zoom-in", clickable: true },
+      { x:1, y: 1, visible: true, image: "next/img6.JPG", hoverCursor: "zoom-in", clickable: true },
     ],
   },
 
@@ -395,8 +398,9 @@ window.Scenes = [
     cursor: "wait",
     tooltipVisible: true,
     cursorTooltip: "But everything keeps changing",
+    blurOverlay: 3,
     blocks:   [
-      { x: 2, y: 0, visible: true, image: "next/img6.jpeg" },
+      { x: 2, y: 0, visible: true, image: "next/imgbw.jpeg" },
       { x: 0, y: 1, visible: true, image: "next/bw5.jpeg" },
       { x: 2, y: 2, visible: true, image: "next/img3.jpeg" },
         ],
@@ -410,6 +414,7 @@ window.Scenes = [
     cursor: "wait",
     tooltipVisible: true,
     cursorTooltip: "But everything keeps changing",
+    blurOverlay: 2,
     blocks:   [
       { x: 0, y: 0, visible: true, image: "next/img6.jpeg" },
       { x: 1, y: 1, visible: true, image: "next/img1.jpeg" },
@@ -423,6 +428,7 @@ window.Scenes = [
     autoDuration: 2000,
     cursor: "wait",
     tooltipVisible: true,
+    blurOverlay: 1,
     cursorTooltip: "But everything keeps changing",
     blocks:   [
       { x: 1, y: 0, visible: true, image: "next/bw8.jpeg" },
@@ -435,9 +441,9 @@ window.Scenes = [
     id: "change",
     bottomText: "Look closer",
     transition: "click",
-    cursor: "zoom-in",
+    cursor: "default",
     blocks:   [
-         { x: 0, y: 2, visible: true, image: "next/disco2.jpeg" },
+         { x: 0, y: 2, visible: true, image: "next/disco2.jpeg", hoverCursor: "zoom-in", clickable: true },
 
         ],
   },

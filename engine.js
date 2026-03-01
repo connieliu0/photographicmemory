@@ -73,6 +73,22 @@
   });
   gridClipWrapper.appendChild(container);
 
+  // Blur overlay: scene.blurOverlay (px) applies backdrop-filter blur on top of the grid
+  const blurOverlay = document.createElement("div");
+  blurOverlay.id = "blur-overlay";
+  Object.assign(blurOverlay.style, {
+    position: "absolute",
+    top: "0",
+    left: "0",
+    width: "100%",
+    height: "100%",
+    pointerEvents: "none",
+    backdropFilter: "none",
+    WebkitBackdropFilter: "none",
+    display: "none",
+  });
+  gridClipWrapper.appendChild(blurOverlay);
+
   const grid = document.createElement("div");
   grid.id = "grid";
   Object.assign(grid.style, {
@@ -1190,7 +1206,19 @@
       }
       }
 
-      // --- 6. Cursor and tooltip ---
+      // --- 6. Blur overlay (scene.blurOverlay in px) ---
+      var blurPx = typeof nextScene.blurOverlay === "number" ? nextScene.blurOverlay : 0;
+      if (blurPx > 0) {
+        blurOverlay.style.backdropFilter = "blur(" + blurPx + "px)";
+        blurOverlay.style.WebkitBackdropFilter = "blur(" + blurPx + "px)";
+        blurOverlay.style.display = "";
+      } else {
+        blurOverlay.style.backdropFilter = "none";
+        blurOverlay.style.WebkitBackdropFilter = "none";
+        blurOverlay.style.display = "none";
+      }
+
+      // --- 6b. Cursor and tooltip ---
       gridClipWrapper.style.cursor = nextScene.cursor || "default";
       if (!isTouchDevice() && nextScene.tooltipVisible && nextScene.cursorTooltip != null && nextScene.cursorTooltip !== "") {
         tooltipActive = true;
