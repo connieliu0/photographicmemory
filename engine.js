@@ -44,7 +44,7 @@
 
   // Gray grid pattern applied directly as background on gridClipWrapper (no extra DOM)
   var grayGridCellExpr = "min(100vw / 3, 100vh / 3)";
-  var grayGridBg = "#FAFAFA";
+  var grayGridBg = "#F8F8F8";
   var grayGridImage =
     "linear-gradient(to right, white 0px, white 3px, transparent 3px)," +
     "linear-gradient(to bottom, white 0px, white 3px, transparent 3px)";

@@ -8,7 +8,7 @@ window.Scenes = [
     cursorTooltip: "In the recesses of my memory I relive certain scenes",
     blocks: [
       // Hover sound: add hoverSound: "path/to/sound.mp3" to play only while hovering. Optional: hoverSoundLoop (true), hoverSoundVolume (0-1)
-      { x: 1, y: 1, visible: true, image: "img0.png", hoverCursor: "crosshair", hoverTooltip: "An image appears in my mind", clickable: true, hoverSound:"wind.mp3", hoverSoundLoop: true, hoverSoundVolume: 1 },
+      { x: 1, y: 1, visible: true, image: "center.png", hoverCursor: "crosshair", hoverTooltip: "An image appears in my mind", clickable: true, hoverSound:"wind.mp3", hoverSoundLoop: true, hoverSoundVolume: 1 },
     ],
   },
   {
