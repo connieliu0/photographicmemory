@@ -184,7 +184,7 @@ window.Scenes = [
       { x: 0, y: 1, visible: true, image: "next/img3.jpeg" },
       { x: 1, y: 2, visible: true, image: "next/img1.jpeg" },
       {  x: 2, y: 1, visible: true, image: "img6.JPG"},
-      {x: 1, y: 1, visible: false, image: "next/img4.jpeg", hoverCursor: "grabbing", hoverTooltip: "The outcome I want to change", clickable: true},
+      {x: 1, y: 1, visible: false, image: "next/img4.jpeg", hoverCursor: "grab", hoverTooltip: "The outcome I want to change", clickable: true},
     ],
   },
 
@@ -448,7 +448,23 @@ window.Scenes = [
       { x: 1, y: 2, visible: false, image: "next/img1.jpeg" },
         ],
   },
-
+  {
+    id: "change",
+    transition: "auto",
+    autoDuration: 2000,
+    cursor: "zoom-in",
+    blocks:   [
+      { x: 2, y: 2, visible: true, image: "next/img6.jpeg" },
+      { x: 0, y: 2, visible: false, image: "next/img7.jpeg" },
+      { x: 1, y: 1, visible: false, image: "next/bw5.jpeg" },
+      { x: 1, y: 0, visible: false, image: "next/img4.jpeg" },
+      { x: 0, y: 1, visible: true, image: "next/img3.jpeg" },
+      { x: 2, y: 0, visible: true, image: "next/bw9.jpeg" },
+      { x: 2, y: 1, visible: false, image: "next/img2.jpeg" },
+      { x: 0, y: 0, visible: false, image: "next/bw8.jpeg" },
+      { x: 1, y: 2, visible: false, image: "next/img1.jpeg" },
+        ],
+  },
   {
     id: "nothing chnages",
     transition: "auto",

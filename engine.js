@@ -573,21 +573,32 @@
   });
   document.body.appendChild(cursorIconEl);
 
-  var cursorEmojiMap = {
-    "zoom-in": "\uD83D\uDD0E",
-    "zoom-out": "\uD83D\uDD0D",
-    "help": "\u2753",
-    "wait": "\u23F3",
-    "pointer": "\uD83D\uDC46",
-    "grabbing": "\u270A",
-    "not-allowed": "\uD83D\uDEAB",
-    "nesw-resize": "\u2195\uFE0F",
+  var cursorIconImg = document.createElement("img");
+  cursorIconImg.alt = "";
+  cursorIconImg.style.width = "28px";
+  cursorIconImg.style.height = "28px";
+  cursorIconImg.style.display = "block";
+  cursorIconEl.appendChild(cursorIconImg);
+
+  // Map cursor types to cursors/ folder PNG names (same as CSS cursor where available)
+  var cursorImageMap = {
+    "zoom-in": "zoom-in",
+    "zoom-out": "zoom-out",
+    "help": "default",
+    "wait": "wait",
+    "pointer": "pointer",
+    "grab": "grab",
+    "grabbing": "grab",
+    "not-allowed": "not-allowed",
+    "default": "default",
+    "crosshair": "crosshair",
+    "nesw-resize": "default",
   };
 
   function showCursorIcon(type, x, y) {
-    var emoji = cursorEmojiMap[type];
-    if (!emoji) { cursorIconEl.style.display = "none"; return; }
-    cursorIconEl.textContent = emoji;
+    var filename = cursorImageMap[type];
+    if (!filename) { cursorIconEl.style.display = "none"; return; }
+    cursorIconImg.src = "cursors/" + filename + ".png";
     cursorIconEl.style.display = "block";
     cursorIconEl.style.left = x + "px";
     cursorIconEl.style.top = (y - 4) + "px";
