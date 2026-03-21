@@ -563,7 +563,8 @@ window.Scenes = [
 
   {
     id: "image-appears",
-    transition: "click",
+    transition: "auto",
+    autoDuration: 2000,
     bottomText: "Yeah... I do",
     cursor: "help",
     cursorTooltip: null,

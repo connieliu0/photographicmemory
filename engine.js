@@ -13,6 +13,7 @@
   let hoverSoundAudio = null;
   let backgroundSoundAudio = null;
   let backgroundSoundCurrentUrl = null; // so we can keep playing when next scene uses same track
+  let delayedBottomTextTimer = null;
 
   // Mobile touch support
   var _isTouchDevice = false;
@@ -489,24 +490,48 @@
   });
   document.body.appendChild(bottomTextWrap);
 
+  // Primary = crossfade layers; secondary = optional delayed line below (same scene)
+  var bottomTextPrimaryWrap = document.createElement("div");
+  bottomTextPrimaryWrap.id = "bottom-text-primary-wrap";
+  Object.assign(bottomTextPrimaryWrap.style, {
+    position: "relative",
+    width: "100%",
+    minHeight: "1.5em",
+  });
+  bottomTextWrap.appendChild(bottomTextPrimaryWrap);
+
   var bottomTextElA = document.createElement("div");
   var bottomTextElB = document.createElement("div");
+  var bottomTextSharedStyle = {
+    position: "absolute",
+    top: "0",
+    left: "50%",
+    transform: "translateX(-50%)",
+    color: "#ffd700",
+    fontWeight: "400",
+    fontSize: "18px",
+    fontFamily: "system-ui, sans-serif",
+    textAlign: "center",
+    opacity: "0",
+    width: "100%",
+    textShadow: "2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000",
+  };
   [bottomTextElA, bottomTextElB].forEach(function (el) {
-    Object.assign(el.style, {
-      position: "absolute",
-      left: "50%",
-      transform: "translateX(-50%)",
-      color: "#ffd700",
-      fontWeight: "400",
-      fontSize: "18px",
-      fontFamily: "system-ui, sans-serif",
-      textAlign: "center",
-      opacity: "0",
-      width: "100%",
-      textShadow: "2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000",
-    });
-    bottomTextWrap.appendChild(el);
+    Object.assign(el.style, bottomTextSharedStyle);
+    bottomTextPrimaryWrap.appendChild(el);
   });
+
+  var bottomTextSecondaryEl = document.createElement("div");
+  Object.assign(bottomTextSecondaryEl.style, Object.assign({}, bottomTextSharedStyle, {
+    position: "absolute",
+    top: "100%",
+    marginTop: "6px",
+    opacity: "0",
+    pointerEvents: "none",
+    fontSize: "17px",
+    fontStyle: "italic",
+  }));
+  bottomTextPrimaryWrap.appendChild(bottomTextSecondaryEl);
 
   var bottomTextActive = 0;
 
@@ -901,6 +926,13 @@
       clearTimeout(autoTimer);
       autoTimer = null;
     }
+    if (delayedBottomTextTimer) {
+      clearTimeout(delayedBottomTextTimer);
+      delayedBottomTextTimer = null;
+    }
+    if (typeof gsap !== "undefined") {
+      gsap.killTweensOf(bottomTextSecondaryEl);
+    }
     if (flashTimer) {
       clearInterval(flashTimer);
       flashTimer = null;
@@ -1270,8 +1302,16 @@
       }
 
       // --- 7. Bottom text crossfade ---
+      if (typeof gsap !== "undefined") {
+        gsap.killTweensOf(bottomTextSecondaryEl);
+      }
+      bottomTextSecondaryEl.textContent = "";
+      bottomTextSecondaryEl.style.opacity = "0";
+
       var prevText = prevScene && prevScene.bottomText ? prevScene.bottomText : "";
       var nextText = nextScene.bottomText ? nextScene.bottomText : "";
+      var delayedBottomText = nextScene.delayedBottomText || "";
+      var delayedBottomTextMs = typeof nextScene.delayedBottomTextMs === "number" ? nextScene.delayedBottomTextMs : 3000;
       var textUnchanged = prevText === nextText && nextText !== "";
       var bottomTextDelay = !!(nextScene.bottomText && nextScene.delay);
       var bottomTextDelayMs = 1000;
@@ -1326,6 +1366,19 @@
         } else {
           getBottomTextEl().style.opacity = "0";
         }
+      }
+
+      if (delayedBottomText && nextText) {
+        bottomTextSecondaryEl.textContent = delayedBottomText;
+        bottomTextSecondaryEl.style.opacity = "0";
+        delayedBottomTextTimer = setTimeout(function () {
+          if (window.Scenes && window.Scenes[currentScene] !== nextScene) return;
+          if (typeof gsap !== "undefined") {
+            gsap.to(bottomTextSecondaryEl, { opacity: 1, duration: 0.45, ease: TRANSITION_EASE });
+          } else {
+            bottomTextSecondaryEl.style.opacity = "1";
+          }
+        }, delayedBottomTextMs);
       }
 
       // --- Flash sequence: rapid-fire images in one or more cells ---
